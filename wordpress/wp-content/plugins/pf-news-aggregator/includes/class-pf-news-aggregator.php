@@ -36,6 +36,8 @@ class PF_News_Aggregator {
 		add_action( 'init', array( $this, 'register_taxonomy' ) );
 		add_action( 'init', array( $this, 'maybe_seed_terms' ) );
 
+		PF_Featured_Posts::init();
+
 		add_filter( 'cron_schedules', array( $this, 'add_cron_schedules' ) );
 		add_action( 'pf_fetch_rss_event', array( $this->fetcher, 'run' ) );
 
@@ -192,6 +194,22 @@ class PF_News_Aggregator {
 			function () {
 				$count = (int) wp_count_posts( 'pet_news' )->publish;
 				WP_CLI::success( "Total pet_news posts: {$count}" );
+			}
+		);
+
+		WP_CLI::add_command(
+			'pf-news feature',
+			function ( $args ) {
+				if ( empty( $args ) ) {
+					WP_CLI::error( 'Usage: wp pf-news feature <post_id> [post_id...]' );
+				}
+
+				PF_Featured_Posts::set_featured( array_map( 'intval', $args ) );
+
+				foreach ( $args as $post_id ) {
+					WP_CLI::log( "✅ Đã đánh dấu nổi bật: post #{$post_id}" );
+				}
+				WP_CLI::success( 'Hero Section đã được cập nhật!' );
 			}
 		);
 	}

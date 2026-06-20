@@ -66,6 +66,7 @@ require_once PF_NEWS_PLUGIN_DIR . 'includes/class-ai-translator.php';
 require_once PF_NEWS_PLUGIN_DIR . 'includes/class-post-creator.php';
 require_once PF_NEWS_PLUGIN_DIR . 'includes/class-rss-fetcher.php';
 require_once PF_NEWS_PLUGIN_DIR . 'includes/class-community-sidebar.php';
+require_once PF_NEWS_PLUGIN_DIR . 'includes/class-featured-posts.php';
 require_once PF_NEWS_PLUGIN_DIR . 'includes/class-pf-news-aggregator.php';
 
 register_activation_hook(

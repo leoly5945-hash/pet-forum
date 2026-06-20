@@ -14,9 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 $featured_news = new WP_Query(
 	array(
 		'post_type'      => 'pet_news',
-		'posts_per_page' => 7,
-		'meta_key'       => '_pf_featured',
-		'meta_value'     => '1',
+		'posts_per_page' => 3,
+		'meta_query'     => array(
+			array(
+				'key'   => '_pf_featured',
+				'value' => '1',
+			),
+		),
 		'orderby'        => 'date',
 		'order'          => 'DESC',
 		'post_status'    => 'publish',
