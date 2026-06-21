@@ -7,16 +7,14 @@
 }
 
 .pf-social-login { display: flex; flex-direction: column; gap: 12px; }
-.pf-btn-google, .pf-btn-apple {
+.pf-btn-google {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 13px 20px; border-radius: 12px;
   font-size: 0.9rem; font-weight: 600; text-decoration: none;
   border: 1.5px solid #e2e8f0; cursor: pointer; transition: all 0.2s;
+  background: #fff; color: #374151;
 }
-.pf-btn-google { background: #fff; color: #374151; }
 .pf-btn-google:hover { background: #f8fafc; border-color: #4285F4; }
-.pf-btn-apple { background: #000; color: #fff; border-color: #000; }
-.pf-btn-apple:hover { background: #1a1a1a; }
 
 .pf-divider { text-align: center; position: relative; margin: 20px 0; }
 .pf-divider::before {
@@ -30,6 +28,8 @@
 
 .pf-field { margin-bottom: 18px; }
 .pf-field label { display: block; font-size: 0.85rem; font-weight: 600; color: #374151; margin-bottom: 6px; }
+.pf-required { color: #f97316; }
+.pf-pass-hint { font-size: 0.75rem; margin-top: 4px; min-height: 16px; }
 .pf-field input[type="email"],
 .pf-field input[type="text"],
 .pf-field input[type="password"],

@@ -18,6 +18,8 @@ class PF_Onboarding {
 		add_filter( 'login_redirect', [ __CLASS__, 'custom_login_redirect' ], 10, 3 );
 
 		add_action( 'wp_ajax_nopriv_pf_register', [ __CLASS__, 'ajax_register' ] );
+		add_action( 'wp_ajax_nopriv_pf_resend_verify', [ __CLASS__, 'ajax_resend_verify' ] );
+		add_action( 'wp_ajax_pf_resend_verify', [ __CLASS__, 'ajax_resend_verify' ] );
 
 		// Social login users: email verified by provider.
 		add_action( 'nsl_register_new_user', [ __CLASS__, 'mark_social_user_verified' ], 10, 1 );
@@ -150,6 +152,32 @@ class PF_Onboarding {
 				$email
 			),
 		] );
+	}
+
+	public static function ajax_resend_verify() {
+		check_ajax_referer( 'pf_register_nonce', 'nonce' );
+
+		$uid   = intval( $_POST['uid'] ?? 0 );
+		$email = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
+
+		$user = $uid ? get_userdata( $uid ) : get_user_by( 'email', $email );
+		if ( ! $user ) {
+			wp_send_json_error( [ 'message' => __( 'Không tìm thấy tài khoản.', 'pf' ) ] );
+		}
+
+		if ( get_user_meta( $user->ID, 'pf_email_verified', true ) === '1' ) {
+			wp_send_json_error( [ 'message' => __( 'Email này đã được xác thực rồi.', 'pf' ) ] );
+		}
+
+		$last_sent = (int) get_user_meta( $user->ID, 'pf_verify_last_sent', true );
+		if ( $last_sent && ( time() - $last_sent ) < 120 ) {
+			wp_send_json_error( [ 'message' => __( 'Vui lòng chờ 2 phút trước khi gửi lại.', 'pf' ) ] );
+		}
+
+		update_user_meta( $user->ID, 'pf_verify_last_sent', time() );
+		self::send_verification_email( $user->ID );
+
+		wp_send_json_success( [ 'message' => __( 'Đã gửi lại email xác thực!', 'pf' ) ] );
 	}
 
 	public static function send_verification_email( $user_id ) {
@@ -312,17 +340,19 @@ class PF_Onboarding {
 }
 
 function pf_google_login_url() {
-	if ( function_exists( 'NextendSocialLogin' ) ) {
-		$provider = NextendSocialLogin::getProvider( 'google' );
-		return $provider ? $provider->getLoginUrl() : '#google-not-configured';
+	if ( ! class_exists( 'NextendSocialLogin' ) ) {
+		return '#install-nextend-social-login';
 	}
-	return '#install-nextend-social-login';
-}
 
-function pf_apple_login_url() {
-	if ( function_exists( 'NextendSocialLogin' ) ) {
-		$provider = NextendSocialLogin::getProvider( 'apple' );
-		return $provider ? $provider->getLoginUrl() : '#apple-not-configured';
+	$provider = NextendSocialLogin::getProviderByProviderID( 'google' );
+	if ( $provider ) {
+		return $provider->getLoginUrl();
 	}
-	return '#install-nextend-social-login';
+
+	$settings = (array) maybe_unserialize( get_option( 'nsl_google' ) );
+	if ( ! empty( $settings['client_id'] ) ) {
+		return add_query_arg( 'loginSocial', 'google', NextendSocialLogin::getLoginUrl() );
+	}
+
+	return '#google-not-configured';
 }

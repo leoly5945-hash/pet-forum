@@ -28,4 +28,8 @@ register_activation_hook( __FILE__, function () {
 	update_option( 'users_can_register', 1 );
 	update_option( 'default_role', 'subscriber' );
 	update_option( 'pf_email_verify_required', 1 );
+
+	if ( class_exists( 'PF_User_Meta' ) ) {
+		PF_User_Meta::register_wpforo_custom_fields();
+	}
 } );
