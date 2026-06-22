@@ -1,7 +1,7 @@
 <?php
 defined( 'ABSPATH' ) || exit;
 
-class PF_AntiSpam {
+class PF_AntiSpam_V2 {
 
 	private static $disposable_domains = [
 		'mailinator.com', 'guerrillamail.com', 'tempmail.com', 'throwam.com',
@@ -28,6 +28,8 @@ class PF_AntiSpam {
 
 	public static function init() {
 		add_action( 'wp_ajax_nopriv_pf_register', [ __CLASS__, 'verify_turnstile_on_register' ], 1 );
+		add_action( 'wp_ajax_nopriv_pf_register_member', [ __CLASS__, 'verify_turnstile_on_register' ], 1 );
+		add_action( 'wp_ajax_nopriv_pf_register_vet', [ __CLASS__, 'verify_turnstile_on_register' ], 1 );
 
 		add_filter( 'registration_errors', [ __CLASS__, 'block_disposable_email' ], 10, 3 );
 
@@ -37,12 +39,12 @@ class PF_AntiSpam {
 		add_action( 'wpforo_after_add_post', [ __CLASS__, 'flag_after_post' ], 10, 3 );
 		add_action( 'wpforo_after_add_topic', [ __CLASS__, 'flag_after_topic' ], 10, 2 );
 
-		add_action( 'admin_menu', [ __CLASS__, 'register_admin_menu' ], 50 );
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::add_command( 'pf-spam report', [ __CLASS__, 'cli_spam_report' ] );
 		}
 	}
+
 
 	public static function create_tables() {
 		global $wpdb;
@@ -96,8 +98,10 @@ class PF_AntiSpam {
 	}
 
 	public static function is_disposable_email( $email ) {
-		$domain = strtolower( substr( strrchr( $email, '@' ), 1 ) );
-		return in_array( $domain, self::$disposable_domains, true );
+		$domain  = strtolower( substr( strrchr( $email, '@' ), 1 ) );
+		$domains = array_merge( self::$disposable_domains, PF_Constants::DISPOSABLE_DOMAINS );
+
+		return in_array( $domain, array_unique( $domains ), true );
 	}
 
 	public static function block_disposable_email( $errors, $sanitized_user_login, $user_email ) {
@@ -189,7 +193,7 @@ class PF_AntiSpam {
 
 	private static function apply_keyword_filter( $data, $type ) {
 		$custom_keywords = get_option( 'pf_banned_keywords', [] );
-		$all_keywords    = array_merge( self::$banned_keywords, (array) $custom_keywords );
+		$all_keywords    = array_merge( self::$banned_keywords, PF_Constants::DEFAULT_BANNED_KEYWORDS, (array) $custom_keywords );
 
 		$content  = strtolower( $data['body'] ?? '' );
 		$title    = strtolower( $data['title'] ?? '' );
@@ -253,92 +257,6 @@ class PF_AntiSpam {
 			],
 			[ '%d', '%d', '%s', '%s', '%s', '%s' ]
 		);
-	}
-
-	public static function register_admin_menu() {
-		add_submenu_page(
-			'wpforo-overview',
-			'PF Anti-Spam',
-			'🛡 Anti-Spam',
-			'manage_options',
-			'pf-antispam',
-			[ __CLASS__, 'render_admin_page' ]
-		);
-	}
-
-	public static function render_admin_page() {
-		if ( ! empty( $_POST['pf_save_antispam'] ) ) {
-			check_admin_referer( 'pf_antispam_save' );
-
-			$keywords = array_filter( array_map( 'trim', explode( "\n", wp_unslash( $_POST['pf_banned_keywords'] ?? '' ) ) ) );
-			update_option( 'pf_banned_keywords', $keywords );
-			update_option( 'pf_turnstile_site_key', sanitize_text_field( wp_unslash( $_POST['pf_turnstile_site_key'] ?? '' ) ) );
-			update_option( 'pf_turnstile_secret_key', sanitize_text_field( wp_unslash( $_POST['pf_turnstile_secret_key'] ?? '' ) ) );
-
-			echo '<div class="notice notice-success"><p>✅ Đã lưu cài đặt Anti-Spam!</p></div>';
-		}
-
-		$keywords  = implode( "\n", (array) get_option( 'pf_banned_keywords', [] ) );
-		$ts_site   = get_option( 'pf_turnstile_site_key', '' );
-		$ts_secret = get_option( 'pf_turnstile_secret_key', '' );
-
-		global $wpdb;
-		$logs = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}pf_spam_log ORDER BY created_at DESC LIMIT 50" );
-		?>
-		<div class="wrap">
-			<h1>🛡 PetForum Anti-Spam Settings</h1>
-			<form method="POST">
-				<?php wp_nonce_field( 'pf_antispam_save' ); ?>
-				<h2>Cloudflare Turnstile</h2>
-				<table class="form-table">
-					<tr>
-						<th>Site Key</th>
-						<td><input type="text" name="pf_turnstile_site_key" value="<?php echo esc_attr( $ts_site ); ?>" class="regular-text" placeholder="0x4AAAAAAA..."></td>
-					</tr>
-					<tr>
-						<th>Secret Key</th>
-						<td><input type="password" name="pf_turnstile_secret_key" value="<?php echo esc_attr( $ts_secret ); ?>" class="regular-text"></td>
-					</tr>
-					<tr>
-						<th colspan="2">
-							<a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener">
-								→ Lấy key miễn phí tại Cloudflare Turnstile Dashboard
-							</a>
-						</th>
-					</tr>
-				</table>
-
-				<h2>Từ khóa cấm (mỗi dòng 1 từ)</h2>
-				<textarea name="pf_banned_keywords" rows="12" cols="60" class="large-text"><?php echo esc_textarea( $keywords ); ?></textarea>
-				<p class="description">Bài chứa các từ này sẽ tự động chuyển sang Pending để Mod duyệt.</p>
-
-				<p><input type="submit" name="pf_save_antispam" class="button button-primary" value="💾 Lưu cài đặt"></p>
-			</form>
-
-			<hr>
-			<h2>📋 Spam Log (50 mục gần nhất)</h2>
-			<table class="widefat striped">
-				<thead>
-					<tr>
-						<th>User</th><th>Loại</th><th>Lý do</th><th>Keyword</th><th>IP</th><th>Thời gian</th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( $logs as $log ) : ?>
-					<?php $log_user = get_userdata( $log->user_id ); ?>
-					<tr>
-						<td><?php echo esc_html( $log_user ? $log_user->display_name : "User #{$log->user_id}" ); ?></td>
-						<td><?php echo esc_html( $log->post_type ); ?></td>
-						<td><?php echo esc_html( $log->reason ); ?></td>
-						<td><?php echo esc_html( $log->keyword ); ?></td>
-						<td><?php echo esc_html( $log->ip_address ); ?></td>
-						<td><?php echo esc_html( $log->created_at ); ?></td>
-					</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
-		</div>
-		<?php
 	}
 
 	public static function cli_spam_report( $args, $assoc_args ) {

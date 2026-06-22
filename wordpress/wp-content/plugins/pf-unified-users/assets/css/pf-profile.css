@@ -1,0 +1,89 @@
+/* ── MEMBER EXTRA INFO (trên profile card) ── */
+.pf-member-extra-info {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+.pf-info-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; font-size: 0.85rem; color: #374151;
+}
+.pf-info-icon { font-size: 1rem; flex-shrink: 0; }
+.pf-info-value { color: #1e293b; font-weight: 500; }
+.pf-private { color: #94a3b8 !important; font-style: italic; }
+.pf-info-hidden { opacity: 0.6; }
+
+/* ── PRIVACY SECTION (trong form profile) ── */
+.pf-privacy-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 20px 0;
+}
+.pf-privacy-title {
+  font-size: 0.95rem; font-weight: 700;
+  color: #1e293b; margin: 0 0 6px;
+}
+.pf-privacy-desc {
+  font-size: 0.8rem; color: #64748b; margin: 0 0 16px;
+}
+.pf-privacy-row {
+  display: flex; align-items: center;
+  gap: 16px; padding: 10px 0;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+.pf-privacy-row:last-child { border-bottom: none; }
+.pf-privacy-label {
+  font-size: 0.85rem; font-weight: 600;
+  color: #374151; min-width: 180px;
+}
+.pf-toggle-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.pf-toggle {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  font-size: 0.8rem; color: #64748b;
+  cursor: pointer; transition: all 0.2s;
+  background: #fff;
+}
+.pf-toggle input[type="radio"] { display: none; }
+.pf-toggle:has(input:checked),
+.pf-toggle.active {
+  border-color: #f97316;
+  background: #fff7ed;
+  color: #c2410c;
+  font-weight: 600;
+}
+
+select[name="pf_country"],
+#wpforo select[name="pf_country"],
+#wpforo select[name="data[pf_country]"] {
+  padding: 8px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: #1e293b;
+  background: #f8fafc;
+  min-width: 240px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+select[name="pf_country"]:focus,
+#wpforo select[name="data[pf_country]"]:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249,115,22,0.12);
+}
+
+input[name="pf_phone"],
+#wpforo input[name="pf_phone"],
+#wpforo input[name="data[pf_phone]"] {
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 600px) {
+  .pf-privacy-row { flex-direction: column; align-items: flex-start; }
+  .pf-privacy-label { min-width: unset; }
+}
