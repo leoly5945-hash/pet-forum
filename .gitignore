@@ -28,10 +28,6 @@ wordpress/wp-content/plugins/*
 !wordpress/wp-content/plugins/.gitkeep
 !wordpress/wp-content/plugins/pf-news-aggregator/
 !wordpress/wp-content/plugins/pf-news-aggregator/**
-!wordpress/wp-content/plugins/pf-member-shield/
-!wordpress/wp-content/plugins/pf-member-shield/**
-!wordpress/wp-content/plugins/pf-roles-manager/
-!wordpress/wp-content/plugins/pf-roles-manager/**
 !wordpress/wp-content/plugins/pf-unified-users/
 !wordpress/wp-content/plugins/pf-unified-users/**
 wordpress/wp-content/mu-plugins/*

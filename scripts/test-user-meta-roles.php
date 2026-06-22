@@ -1,6 +1,6 @@
 <?php
 /**
- * Test user meta sync + pf-roles-manager permissions.
+ * Test user meta sync + pf-unified-users role permissions.
  * Run: docker compose exec -T wpcli wp eval-file /scripts/test-user-meta-roles.php --path=/var/www/html --allow-root
  */
 
