@@ -15,11 +15,13 @@ define( 'PF_SHIELD_VER', '1.0.0' );
 require_once PF_SHIELD_DIR . 'modules/class-onboarding.php';
 require_once PF_SHIELD_DIR . 'modules/class-user-meta.php';
 require_once PF_SHIELD_DIR . 'modules/class-antispam.php';
+require_once PF_SHIELD_DIR . 'modules/class-split-register.php';
 
 add_action( 'plugins_loaded', function () {
 	PF_Onboarding::init();
 	PF_User_Meta::init();
 	PF_AntiSpam::init();
+	PF_Split_Register::init();
 } );
 
 register_activation_hook( __FILE__, function () {

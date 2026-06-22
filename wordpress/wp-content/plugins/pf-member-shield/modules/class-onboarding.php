@@ -76,6 +76,11 @@ class PF_Onboarding {
 	}
 
 	public static function on_user_register( $user_id ) {
+		if ( class_exists( 'PF_Split_Register' ) && PF_Split_Register::is_registering_vet() ) {
+			update_user_meta( $user_id, 'pf_email_verified', '1' );
+			return;
+		}
+
 		if ( ! get_user_meta( $user_id, 'pf_email_verified', true ) ) {
 			update_user_meta( $user_id, 'pf_email_verified', '0' );
 		}
@@ -289,6 +294,9 @@ class PF_Onboarding {
 
 	public static function check_email_verified( $user_login, $user ) {
 		if ( user_can( $user, 'manage_options' ) ) {
+			return;
+		}
+		if ( get_user_meta( $user->ID, 'pf_user_type', true ) === 'vet_pending' ) {
 			return;
 		}
 		if ( get_user_meta( $user->ID, 'pf_social_login', true ) === '1' ) {
