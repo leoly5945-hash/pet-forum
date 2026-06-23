@@ -33,6 +33,8 @@ class PF_RSS_Fetcher {
 		update_option( 'pf_news_last_fetch', current_time( 'mysql' ) );
 		update_option( 'pf_news_last_fetch_count', $created );
 
+		do_action( 'pf_rss_fetch_complete', $created );
+
 		return $created;
 	}
 

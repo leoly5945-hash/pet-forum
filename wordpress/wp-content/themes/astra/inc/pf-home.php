@@ -21,12 +21,12 @@ add_action(
 
 		$css_path = $theme_dir . '/css/pf-home.css';
 		if ( file_exists( $css_path ) ) {
-			wp_enqueue_style(
-				'pf-home',
-				$theme_uri . '/css/pf-home.css',
-				array(),
-				filemtime( $css_path )
-			);
+		wp_enqueue_style(
+			'pf-home',
+			$theme_uri . '/css/pf-home.css',
+			array( 'pf-nature-theme' ),
+			filemtime( $css_path )
+		);
 		}
 
 		$js_path = $theme_dir . '/js/pf-home-ajax.js';

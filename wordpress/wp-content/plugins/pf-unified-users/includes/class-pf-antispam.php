@@ -39,6 +39,11 @@ class PF_AntiSpam_V2 {
 		add_action( 'wpforo_after_add_post', [ __CLASS__, 'flag_after_post' ], 10, 3 );
 		add_action( 'wpforo_after_add_topic', [ __CLASS__, 'flag_after_topic' ], 10, 2 );
 
+		add_filter( 'pre_user_display_name', [ __CLASS__, 'block_fake_vet_display_name' ], 10, 1 );
+		add_action( 'personal_options_update', [ __CLASS__, 'block_self_role_meta' ], 1 );
+		add_action( 'edit_user_profile_update', [ __CLASS__, 'block_self_role_meta' ], 1 );
+		add_filter( 'wpforo_edit_profile', [ __CLASS__, 'sanitize_wpforo_profile' ], 10, 2 );
+		add_action( 'wp_footer', [ __CLASS__, 'render_warning_banner' ] );
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::add_command( 'pf-spam report', [ __CLASS__, 'cli_spam_report' ] );
@@ -162,7 +167,17 @@ class PF_AntiSpam_V2 {
 		}
 
 		$user_id = get_current_user_id();
+
+		if ( PF_Constants::is_user_banned( $user_id ) ) {
+			wp_die( esc_html__( 'Tài khoản của bạn đã bị khóa.', 'pf' ), '', [ 'response' => 403 ] );
+		}
+
+		if ( PF_Constants::is_user_restricted( $user_id ) ) {
+			$data['status'] = 1;
+		}
+
 		$content = $data['body'] ?? '';
+		$data    = self::check_fake_vet_content( $data, $user_id, $content, 'post' );
 
 		if ( self::should_quarantine( $user_id ) && self::content_has_url_or_image( $content ) ) {
 			$data['status'] = 1;
@@ -180,7 +195,17 @@ class PF_AntiSpam_V2 {
 		}
 
 		$user_id = get_current_user_id();
+
+		if ( PF_Constants::is_user_banned( $user_id ) ) {
+			wp_die( esc_html__( 'Tài khoản của bạn đã bị khóa.', 'pf' ), '', [ 'response' => 403 ] );
+		}
+
+		if ( PF_Constants::is_user_restricted( $user_id ) ) {
+			$data['status'] = 1;
+		}
+
 		$content = ( $data['body'] ?? '' ) . ' ' . ( $data['title'] ?? '' );
+		$data    = self::check_fake_vet_content( $data, $user_id, $content, 'topic' );
 
 		if ( self::should_quarantine( $user_id ) && self::content_has_url_or_image( $content ) ) {
 			$data['status'] = 1;
@@ -257,6 +282,139 @@ class PF_AntiSpam_V2 {
 			],
 			[ '%d', '%d', '%s', '%s', '%s', '%s' ]
 		);
+	}
+
+	public static function log( $user_id, $type, $reason, $keyword, $ip = '' ) {
+		global $wpdb;
+		$wpdb->insert(
+			"{$wpdb->prefix}pf_spam_log",
+			[
+				'user_id'    => $user_id,
+				'post_id'    => null,
+				'post_type'  => $type,
+				'reason'     => $reason,
+				'keyword'    => $keyword,
+				'ip_address' => $ip ?: sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? '' ) ),
+			],
+			[ '%d', '%d', '%s', '%s', '%s', '%s' ]
+		);
+	}
+
+	public static function block_self_role_meta( $user_id ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( (int) get_current_user_id() !== (int) $user_id ) {
+			return;
+		}
+
+		unset( $_POST['pf_user_type'], $_POST['pf_vet_status'] );
+	}
+
+	public static function block_fake_vet_display_name( $display_name ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return $display_name;
+		}
+
+		$uid = get_current_user_id();
+		if ( ! $uid || PF_Constants::is_verified_vet( $uid ) ) {
+			return $display_name;
+		}
+
+		$vet_prefixes = [ 'bs.', 'dr.', 'bác sĩ', 'thú y', 'ths.', 'veterinarian', 'vet ' ];
+		$lower        = mb_strtolower( $display_name );
+
+		foreach ( $vet_prefixes as $prefix ) {
+			if ( str_contains( $lower, $prefix ) ) {
+				$current = get_userdata( $uid );
+				return $current ? $current->display_name : $display_name;
+			}
+		}
+
+		return $display_name;
+	}
+
+	public static function sanitize_wpforo_profile( $data, $userid ) {
+		unset( $userid );
+		if ( PF_Constants::is_verified_vet( get_current_user_id() ) ) {
+			return $data;
+		}
+
+		$sig = mb_strtolower( $data['signature'] ?? '' );
+		$vet_claims = [ 'bác sĩ thú y', 'bs. ', 'dr. ', 'veterinarian', 'thú y' ];
+
+		foreach ( $vet_claims as $claim ) {
+			if ( str_contains( $sig, $claim ) ) {
+				$data['signature'] = '';
+				break;
+			}
+		}
+
+		return $data;
+	}
+
+	private static function check_fake_vet_content( $data, $user_id, $content, $type ) {
+		if ( PF_Constants::is_verified_vet( $user_id ) ) {
+			return $data;
+		}
+
+		$lower = mb_strtolower( strip_tags( $content ) );
+		$fake_vet_phrases = [
+			'với tư cách bác sĩ', 'tôi là bác sĩ', 'i am a vet', 'as a veterinarian',
+			'với kinh nghiệm bác sĩ', 'theo chuyên môn của tôi',
+		];
+
+		foreach ( $fake_vet_phrases as $phrase ) {
+			if ( str_contains( $lower, $phrase ) ) {
+				$data['status'] = 1;
+				self::log( $user_id, $type, 'fake_vet_claim', $phrase, sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? '' ) ) );
+				break;
+			}
+		}
+
+		return $data;
+	}
+
+	public static function render_warning_banner() {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		$user_id = get_current_user_id();
+		$level   = PF_Constants::get_warn_level( $user_id );
+		if ( $level < PF_Constants::WARN_WARNING || $level >= PF_Constants::WARN_BANNED ) {
+			return;
+		}
+
+		$reason = get_user_meta( $user_id, PF_Constants::META_WARN_REASON, true );
+		$lang   = get_user_meta( $user_id, PF_Constants::META_PREFERRED_LANG, true ) ?: 'vi';
+
+		$messages = [
+			1 => [
+				'vi' => '⚠️ Tài khoản của bạn nhận cảnh báo.',
+				'en' => '⚠️ Your account has received a warning.',
+			],
+			2 => [
+				'vi' => '🔴 Tài khoản của bạn nhận cảnh cáo nghiêm trọng.',
+				'en' => '🔴 Your account has received a serious caution.',
+			],
+			3 => [
+				'vi' => '🔒 Bài đăng của bạn sẽ được duyệt trước khi hiển thị.',
+				'en' => '🔒 Your posts require approval before they appear.',
+			],
+		];
+
+		$msg  = $messages[ $level ][ $lang ] ?? $messages[ $level ]['vi'];
+		$bg   = $level >= 2 ? '#fef2f2' : '#fffbeb';
+		$border = $level >= 2 ? '#fca5a5' : '#fcd34d';
+		?>
+		<div id="pf-warn-banner" style="position:fixed;bottom:16px;right:16px;z-index:99999;max-width:360px;padding:14px 18px;background:<?php echo esc_attr( $bg ); ?>;border:1px solid <?php echo esc_attr( $border ); ?>;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.12);font-size:14px;line-height:1.5">
+			<strong><?php echo esc_html( $msg ); ?></strong>
+			<?php if ( $reason ) : ?>
+				<p style="margin:6px 0 0;color:#64748b"><?php echo esc_html( $reason ); ?></p>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	public static function cli_spam_report( $args, $assoc_args ) {

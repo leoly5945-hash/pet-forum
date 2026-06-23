@@ -1,0 +1,222 @@
+/**
+ * Pet Forum — Natural green theme (thú cưng / thiên nhiên)
+ */
+:root {
+	--pf-green-900: #1b4332;
+	--pf-green-800: #2d6a4f;
+	--pf-green-700: #40916c;
+	--pf-green-600: #52b788;
+	--pf-green-500: #74c69d;
+	--pf-green-400: #95d5b2;
+	--pf-green-300: #b7e4c7;
+	--pf-green-200: #d8f3dc;
+	--pf-green-100: #e8f5e9;
+	--pf-green-50: #f0f7ee;
+	--pf-green-bg: #f6fbf4;
+
+	--pf-primary: var(--pf-green-700);
+	--pf-primary-dark: var(--pf-green-800);
+	--pf-primary-darker: var(--pf-green-900);
+	--pf-primary-light: var(--pf-green-600);
+	--pf-accent: var(--pf-green-500);
+
+	--pf-teal: #0f766e;
+	--pf-teal-light: #14b8a6;
+
+	--pf-text: var(--pf-green-900);
+	--pf-text-muted: #52796f;
+	--pf-text-light: #74a98a;
+
+	--pf-border: #c8e6c9;
+	--pf-border-light: #e2efe0;
+	--pf-card-shadow: 0 4px 20px rgba(27, 67, 50, 0.08);
+
+	/* Astra compatibility */
+	--ast-global-color-0: var(--pf-green-900);
+	--ast-global-color-1: var(--pf-green-800);
+	--ast-global-color-2: var(--pf-green-700);
+	--ast-global-color-3: var(--pf-green-600);
+}
+
+/* ── Base ── */
+body {
+	background-color: var(--pf-green-bg) !important;
+	color: var(--pf-text);
+}
+
+.site-content,
+#content,
+.ast-separate-container .ast-article-single,
+.ast-separate-container .ast-article-post {
+	background-color: transparent;
+}
+
+/* ── Typography & links ── */
+.entry-title a,
+.entry-title,
+h1, h2, h3, h4 {
+	color: var(--pf-text);
+}
+
+a {
+	color: var(--pf-primary-dark);
+}
+
+a:hover,
+a:focus {
+	color: var(--pf-primary);
+}
+
+/* ── Header (override legacy Astra custom CSS #1a1a2e) ── */
+.site-header,
+.site-header .main-header-bar,
+.main-header-bar,
+.ast-primary-header-bar,
+.ast-header-break-point .main-header-bar,
+.ast-primary-header-bar .main-header-bar {
+	background-color: #fff !important;
+	background: #fff !important;
+	border-bottom: 1px solid var(--pf-border-light) !important;
+	box-shadow: 0 1px 0 rgba(45, 106, 79, 0.06);
+}
+
+.site-header .site-title a,
+.site-header .site-title,
+.site-header .site-description,
+.ast-site-identity .site-title a {
+	color: var(--pf-green-900) !important;
+}
+
+.main-header-menu .menu-link,
+.main-header-menu a,
+.main-header-menu .menu-item > a,
+.ast-builder-menu .menu-item > a {
+	color: var(--pf-green-800) !important;
+	font-weight: 600 !important;
+	opacity: 1 !important;
+}
+
+.main-header-menu .menu-link:hover,
+.main-header-menu .menu-item:hover > .menu-link,
+.main-header-menu .current-menu-item > .menu-link,
+.main-header-menu .current-menu-ancestor > .menu-link {
+	color: var(--pf-primary) !important;
+}
+
+/* Mobile menu toggle */
+.ast-mobile-menu-buttons .menu-toggle,
+.ast-button-wrap .menu-toggle {
+	color: var(--pf-green-800) !important;
+}
+
+/* ── Buttons ── */
+button,
+input[type="submit"],
+input[type="button"],
+.button,
+.ast-button,
+.wp-block-button__link,
+.ast-custom-button {
+	background-color: var(--pf-primary) !important;
+	border-color: var(--pf-primary) !important;
+	color: #fff !important;
+	border-radius: 10px !important;
+	transition: background 0.2s, transform 0.15s;
+}
+
+button:hover,
+input[type="submit"]:hover,
+.button:hover,
+.ast-button:hover,
+.wp-block-button__link:hover {
+	background-color: var(--pf-primary-dark) !important;
+	border-color: var(--pf-primary-dark) !important;
+}
+
+/* ── Cards & content boxes ── */
+.ast-article-single,
+.ast-article-post,
+.ast-separate-container .ast-article-post,
+.ast-separate-container .ast-article-single {
+	background: #fff;
+	border: 1px solid var(--pf-border-light);
+	border-radius: 14px;
+	box-shadow: var(--pf-card-shadow);
+}
+
+/* ── Footer ── */
+.site-footer,
+.site-below-footer-wrap {
+	background: linear-gradient(180deg, var(--pf-green-900), #143d2e) !important;
+	color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.site-footer a {
+	color: var(--pf-green-300) !important;
+}
+
+.site-footer a:hover {
+	color: #fff !important;
+}
+
+/* ── wpForo accents ── */
+#wpforo-wrap {
+	--wpf-color-base: var(--pf-primary);
+}
+
+.wpforo-topic-badges .wpfcl-3,
+.wpforo-post .wpf-button,
+#wpforo #wpforo-wrap .wpf-button {
+	background-color: var(--pf-primary) !important;
+	border-color: var(--pf-primary) !important;
+}
+
+.wpforo-category-title,
+#wpforo #wpforo-wrap .wpf-head-bar {
+	border-color: var(--pf-border) !important;
+}
+
+/* ── Forms ── */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="url"],
+input[type="tel"],
+textarea,
+select {
+	border-color: var(--pf-border) !important;
+	border-radius: 8px !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+	border-color: var(--pf-primary) !important;
+	box-shadow: 0 0 0 3px rgba(64, 145, 108, 0.15) !important;
+	outline: none;
+}
+
+/* ── Scroll to top ── */
+#ast-scroll-top {
+	background-color: var(--pf-primary) !important;
+}
+
+/* ── Mod FAB ── */
+.pf-mod-fab {
+	background: var(--pf-green-900) !important;
+	color: var(--pf-green-300) !important;
+	box-shadow: 0 4px 16px rgba(27, 67, 50, 0.35) !important;
+}
+
+.pf-mod-fab:hover {
+	color: #fff !important;
+}
+
+/* ── Subtle page hero band on inner pages ── */
+.page .entry-header,
+.single .entry-header {
+	border-bottom: 3px solid var(--pf-green-200);
+	padding-bottom: 12px;
+	margin-bottom: 24px;
+}

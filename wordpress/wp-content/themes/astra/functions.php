@@ -226,3 +226,17 @@ if ( file_exists( ASTRA_THEME_DIR . 'inc/language-switcher.php' ) ) {
 if ( file_exists( ASTRA_THEME_DIR . 'inc/pf-home.php' ) ) {
 	require_once ASTRA_THEME_DIR . 'inc/pf-home.php';
 }
+
+/**
+ * Pet Forum — header auth menu (đăng ký / đăng nhập).
+ */
+if ( file_exists( ASTRA_THEME_DIR . 'inc/pf-auth-nav.php' ) ) {
+	require_once ASTRA_THEME_DIR . 'inc/pf-auth-nav.php';
+}
+
+/**
+ * Pet Forum — natural green theme (site-wide).
+ */
+if ( file_exists( ASTRA_THEME_DIR . 'inc/pf-nature-theme.php' ) ) {
+	require_once ASTRA_THEME_DIR . 'inc/pf-nature-theme.php';
+}

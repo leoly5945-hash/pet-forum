@@ -13,6 +13,9 @@ class PF_Admin_V2 {
 		add_action( 'admin_post_pf_approve_vet', [ __CLASS__, 'handle_approve_vet' ] );
 		add_action( 'admin_post_pf_reject_vet', [ __CLASS__, 'handle_reject_vet' ] );
 
+		add_action( 'wp_ajax_pf_warn_user', [ __CLASS__, 'ajax_warn_user' ] );
+		add_action( 'wp_ajax_pf_clear_warn', [ __CLASS__, 'ajax_clear_warn' ] );
+
 		add_filter( 'manage_users_columns', [ __CLASS__, 'add_user_columns' ] );
 		add_filter( 'manage_users_custom_column', [ __CLASS__, 'render_user_columns' ], 10, 3 );
 
@@ -70,6 +73,42 @@ class PF_Admin_V2 {
 			'pfu-antispam',
 			[ __CLASS__, 'render_antispam_page' ]
 		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			'Cảnh báo User',
+			'⚠️ Cảnh báo',
+			'manage_options',
+			'pfu-warnings',
+			[ __CLASS__, 'render_warnings_page' ]
+		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			'Mod Log',
+			'📋 Mod Log',
+			'manage_options',
+			'pfu-modlog',
+			[ __CLASS__, 'render_modlog_page' ]
+		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			'Bàn giao',
+			'🚪 Bàn giao',
+			'manage_options',
+			'pfu-handover',
+			[ __CLASS__, 'render_handover_page' ]
+		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			'Cấu hình Quảng cáo',
+			'📢 Quảng cáo',
+			'manage_options',
+			'pfu-ads',
+			[ __CLASS__, 'render_ads_settings_page' ]
+		);
 	}
 
 	/* ── Dashboard ── */
@@ -98,6 +137,26 @@ class PF_Admin_V2 {
 					<h3 style="margin:0 0 8px">🛡 Spam log</h3>
 					<p style="font-size:32px;font-weight:700;margin:0;color:#dc2626"><?php echo (int) $spam_count; ?></p>
 					<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=pfu-antispam' ) ); ?>">Xem log →</a></p>
+				</div>
+				<div class="card" style="padding:20px">
+					<h3 style="margin:0 0 8px">⚠️ Cảnh báo</h3>
+					<p style="font-size:32px;font-weight:700;margin:0;color:#b45309">
+						<?php
+						echo count( get_users( [
+							'meta_query' => [
+								[
+									'key'     => PF_Constants::META_WARN_LEVEL,
+									'value'   => 0,
+									'compare' => '>',
+									'type'    => 'NUMERIC',
+								],
+							],
+							'fields' => 'ID',
+							'number' => 100,
+						] ) );
+						?>
+					</p>
+					<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=pfu-warnings' ) ); ?>">Quản lý →</a></p>
 				</div>
 				<div class="card" style="padding:20px">
 					<h3 style="margin:0 0 8px">👑 Sub-Admins</h3>
@@ -237,6 +296,15 @@ class PF_Admin_V2 {
 			$user = new WP_User( $user_id );
 			$user->set_role( $role );
 			PF_Roles_V2::assign_section_mod( $user_id, $role );
+			$target = get_userdata( $user_id );
+			PF_Logger::log(
+				get_current_user_id(),
+				'assign_role',
+				'user',
+				$user_id,
+				$target ? $target->user_email : "#{$user_id}",
+				"Assigned role: {$role}"
+			);
 			set_transient( 'pf_roles_msg', 'Đã gán quyền thành công!', 30 );
 		}
 
@@ -253,9 +321,18 @@ class PF_Admin_V2 {
 		$user_id = (int) ( $_POST['user_id'] ?? 0 );
 
 		if ( $user_id ) {
-			$user = new WP_User( $user_id );
+			$target = get_userdata( $user_id );
+			$user   = new WP_User( $user_id );
 			$user->set_role( 'subscriber' );
 			PF_Roles_V2::revoke_mod( $user_id );
+			PF_Logger::log(
+				get_current_user_id(),
+				'revoke_role',
+				'user',
+				$user_id,
+				$target ? $target->user_email : "#{$user_id}",
+				'Role revoked by Super Admin'
+			);
 			set_transient( 'pf_roles_msg', 'Đã thu hồi quyền thành công!', 30 );
 		}
 
@@ -367,6 +444,14 @@ class PF_Admin_V2 {
 		PF_Roles_V2::approve_vet( $user_id );
 
 		$user = get_userdata( $user_id );
+		PF_Logger::log(
+			get_current_user_id(),
+			'approve_vet',
+			'user',
+			$user_id,
+			$user->user_email,
+			'Vet application approved'
+		);
 		set_transient( 'pf_vet_msg', "✅ Đã duyệt và xác minh bác sĩ: {$user->display_name}", 30 );
 		wp_safe_redirect( admin_url( 'admin.php?page=pfu-vet-approval&vet_status=approved' ) );
 		exit;
@@ -382,6 +467,14 @@ class PF_Admin_V2 {
 		PF_Roles_V2::reject_vet( $user_id );
 
 		$user = get_userdata( $user_id );
+		PF_Logger::log(
+			get_current_user_id(),
+			'reject_vet',
+			'user',
+			$user_id,
+			$user->user_email,
+			'Vet application rejected'
+		);
 		set_transient( 'pf_vet_msg', "❌ Đã từ chối hồ sơ: {$user->display_name}", 30 );
 		wp_safe_redirect( admin_url( 'admin.php?page=pfu-vet-approval&vet_status=rejected' ) );
 		exit;
@@ -557,6 +650,587 @@ class PF_Admin_V2 {
 			<?php endif; ?>
 			<?php endif; ?>
 		</table>
+		<?php
+	}
+
+	/* ── Warnings ── */
+
+	public static function ajax_warn_user(): void {
+		check_ajax_referer( 'pf_admin_action' );
+
+		if ( ! current_user_can( 'manage_options' ) && ! PF_Constants::get_pf_role() ) {
+			wp_send_json_error( [ 'message' => 'Không có quyền.' ] );
+		}
+
+		$input  = sanitize_text_field( wp_unslash( $_POST['user_id'] ?? '' ) );
+		$level  = (int) ( $_POST['level'] ?? 1 );
+		$reason = sanitize_text_field( wp_unslash( $_POST['reason'] ?? '' ) );
+
+		if ( ! $input || ! $reason ) {
+			wp_send_json_error( [ 'message' => 'Thiếu thông tin user hoặc lý do.' ] );
+		}
+
+		$user = str_contains( $input, '@' ) ? get_user_by( 'email', $input ) : get_userdata( (int) $input );
+		if ( ! $user ) {
+			wp_send_json_error( [ 'message' => 'Không tìm thấy user.' ] );
+		}
+
+		$pf_role = PF_Constants::get_pf_role();
+		if ( $pf_role && ! current_user_can( 'manage_options' ) ) {
+			if ( $level >= PF_Constants::WARN_BANNED ) {
+				wp_send_json_error( [ 'message' => 'Mod không có quyền khóa tài khoản — chỉ Admin được làm điều này.' ] );
+			}
+			if ( $level > PF_Constants::WARN_CAUTION ) {
+				wp_send_json_error( [ 'message' => 'Mod chỉ được cảnh báo cấp 1–2.' ] );
+			}
+		}
+
+		PF_Roles_V2::warn_user( (int) $user->ID, $reason, $level );
+		PF_Logger::log(
+			get_current_user_id(),
+			'warn_user',
+			'user',
+			(int) $user->ID,
+			$user->user_email,
+			$reason,
+			[ 'level' => $level ]
+		);
+		wp_send_json_success( [ 'message' => 'Đã gửi cảnh báo!' ] );
+	}
+
+	public static function ajax_clear_warn(): void {
+		check_ajax_referer( 'pf_admin_action' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => 'Chỉ Admin mới được gỡ cảnh báo.' ] );
+		}
+
+		$uid = (int) ( $_POST['user_id'] ?? 0 );
+		if ( ! $uid ) {
+			wp_send_json_error( [ 'message' => 'User ID không hợp lệ.' ] );
+		}
+
+		PF_Roles_V2::clear_warning( $uid );
+		$target = get_userdata( $uid );
+		PF_Logger::log(
+			get_current_user_id(),
+			'clear_warning',
+			'user',
+			$uid,
+			$target ? $target->user_email : "#{$uid}",
+			'Warning cleared by Super Admin'
+		);
+		wp_send_json_success( [ 'message' => 'Đã gỡ cảnh báo!' ] );
+	}
+
+	public static function render_warnings_page(): void {
+		$warned_users = get_users( [
+			'meta_query' => [
+				[
+					'key'     => PF_Constants::META_WARN_LEVEL,
+					'value'   => 0,
+					'compare' => '>',
+					'type'    => 'NUMERIC',
+				],
+			],
+			'number' => 100,
+		] );
+		?>
+		<div class="wrap">
+			<h1>⚠️ Quản lý Cảnh báo thành viên</h1>
+
+			<div class="card" style="max-width:600px;padding:20px;margin:16px 0">
+				<h2>Gửi cảnh báo</h2>
+				<div id="pf-warn-form">
+					<p>
+						<label for="pf-warn-user"><strong>User ID hoặc Email:</strong></label><br>
+						<input type="text" id="pf-warn-user" class="regular-text" placeholder="user@email.com hoặc ID">
+					</p>
+					<p>
+						<label for="pf-warn-level"><strong>Mức độ:</strong></label><br>
+						<select id="pf-warn-level">
+							<option value="1">⚠️ Cấp 1 — Cảnh báo</option>
+							<option value="2">🔴 Cấp 2 — Cảnh cáo</option>
+							<option value="3">🔒 Cấp 3 — Hạn chế đăng bài</option>
+							<option value="4">🚫 Cấp 4 — Khóa tài khoản</option>
+						</select>
+					</p>
+					<p>
+						<label for="pf-warn-reason"><strong>Lý do:</strong></label><br>
+						<textarea id="pf-warn-reason" rows="3" class="large-text" placeholder="Mô tả vi phạm..."></textarea>
+					</p>
+					<button type="button" class="button button-primary" onclick="pfSendWarning()">Gửi cảnh báo</button>
+				</div>
+			</div>
+
+			<h2>Đang bị cảnh báo (<?php echo count( $warned_users ); ?>)</h2>
+			<?php if ( empty( $warned_users ) ) : ?>
+				<p style="color:#94a3b8">Không có ai bị cảnh báo.</p>
+			<?php else : ?>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th>User</th>
+						<th>Cấp độ</th>
+						<th>Lý do</th>
+						<th>Số lần</th>
+						<th>Thời gian</th>
+						<th>Hành động</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php
+				$badges = [ 1 => '⚠️', 2 => '🔴', 3 => '🔒', 4 => '🚫' ];
+				$labels = [ 1 => 'Cảnh báo', 2 => 'Cảnh cáo', 3 => 'Hạn chế', 4 => 'Bị khóa' ];
+				foreach ( $warned_users as $u ) :
+					$level  = (int) get_user_meta( $u->ID, PF_Constants::META_WARN_LEVEL, true );
+					$reason = get_user_meta( $u->ID, PF_Constants::META_WARN_REASON, true );
+					$count  = get_user_meta( $u->ID, PF_Constants::META_WARN_COUNT, true );
+					$at     = get_user_meta( $u->ID, PF_Constants::META_WARN_AT, true );
+					?>
+				<tr>
+					<td>
+						<strong><?php echo esc_html( $u->display_name ); ?></strong><br>
+						<small style="color:#94a3b8"><?php echo esc_html( $u->user_email ); ?></small>
+					</td>
+					<td><?php echo esc_html( ( $badges[ $level ] ?? '' ) . ' ' . ( $labels[ $level ] ?? $level ) ); ?></td>
+					<td><?php echo esc_html( $reason ); ?></td>
+					<td style="text-align:center"><?php echo (int) $count; ?></td>
+					<td style="font-size:11px"><?php echo esc_html( $at ); ?></td>
+					<td>
+						<button type="button" class="button button-small" onclick="pfClearWarning(<?php echo (int) $u->ID; ?>)">✅ Gỡ cảnh báo</button>
+						<?php if ( $level < 4 ) : ?>
+						<button type="button" class="button button-small" style="margin-top:4px"
+							onclick="pfEscalate(<?php echo (int) $u->ID; ?>, <?php echo (int) $level + 1; ?>)">
+							⬆️ Leo thang
+						</button>
+						<?php endif; ?>
+					</td>
+				</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+			<?php endif; ?>
+		</div>
+
+		<script>
+		const pfWarnNonce = '<?php echo esc_js( wp_create_nonce( 'pf_admin_action' ) ); ?>';
+
+		function pfSendWarning() {
+			const user   = document.getElementById('pf-warn-user').value;
+			const level  = document.getElementById('pf-warn-level').value;
+			const reason = document.getElementById('pf-warn-reason').value;
+			if (!user || !reason) return alert('Nhập đầy đủ thông tin!');
+
+			fetch(ajaxurl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ action: 'pf_warn_user', user_id: user, level, reason, _ajax_nonce: pfWarnNonce })
+			}).then(r => r.json()).then(d => {
+				alert(d.data?.message || (d.success ? 'OK' : 'Lỗi'));
+				if (d.success) location.reload();
+			});
+		}
+
+		function pfClearWarning(uid) {
+			if (!confirm('Gỡ cảnh báo cho user này?')) return;
+			fetch(ajaxurl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ action: 'pf_clear_warn', user_id: uid, _ajax_nonce: pfWarnNonce })
+			}).then(r => r.json()).then(d => {
+				alert(d.data?.message || (d.success ? 'OK' : 'Lỗi'));
+				if (d.success) location.reload();
+			});
+		}
+
+		function pfEscalate(uid, newLevel) {
+			const reason = prompt('Lý do leo thang cảnh báo:');
+			if (!reason) return;
+			fetch(ajaxurl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ action: 'pf_warn_user', user_id: uid, level: newLevel, reason, _ajax_nonce: pfWarnNonce })
+			}).then(r => r.json()).then(d => {
+				alert(d.data?.message || (d.success ? 'OK' : 'Lỗi'));
+				if (d.success) location.reload();
+			});
+		}
+		</script>
+		<?php
+	}
+
+	/* ── Mod Log ── */
+
+	public static function render_modlog_page(): void {
+		$filter_mod = (int) ( $_GET['mod_id'] ?? 0 );
+		$filter_act = sanitize_key( wp_unslash( $_GET['action_filter'] ?? '' ) );
+		$date_from  = sanitize_text_field( wp_unslash( $_GET['date_from'] ?? gmdate( 'Y-m-01' ) ) );
+		$date_to    = sanitize_text_field( wp_unslash( $_GET['date_to'] ?? gmdate( 'Y-m-d' ) ) );
+		$page_num   = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+		$per_page   = 30;
+
+		$logs = PF_Logger::get_logs( [
+			'mod_id'    => $filter_mod ?: null,
+			'action'    => $filter_act ?: null,
+			'date_from' => $date_from,
+			'date_to'   => $date_to,
+			'limit'     => $per_page,
+			'offset'    => ( $page_num - 1 ) * $per_page,
+		] );
+
+		$action_labels = PF_Logger::action_labels();
+		$mod_roles     = array_merge( [ PF_Constants::ROLE_GLOBAL_ADMIN ], PF_Constants::SECTION_MOD_ROLES );
+
+		$export_url = add_query_arg( [
+			'action'    => 'pf_export_mod_log',
+			'mod_id'    => $filter_mod,
+			'date_from' => $date_from,
+			'date_to'   => $date_to,
+			'_wpnonce'  => wp_create_nonce( 'pf_admin_action' ),
+		], admin_url( 'admin-ajax.php' ) );
+		?>
+		<div class="wrap">
+			<h1>📋 Mod Action Log</h1>
+
+			<div class="card" style="padding:16px;margin:16px 0;max-width:860px">
+				<form method="GET" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+					<input type="hidden" name="page" value="pfu-modlog">
+					<div>
+						<label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Mod</label>
+						<select name="mod_id">
+							<option value="">— Tất cả —</option>
+							<?php foreach ( get_users( [ 'role__in' => $mod_roles, 'number' => 200 ] ) as $u ) : ?>
+							<option value="<?php echo (int) $u->ID; ?>" <?php selected( $filter_mod, $u->ID ); ?>><?php echo esc_html( $u->display_name ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+					<div>
+						<label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Hành động</label>
+						<select name="action_filter">
+							<option value="">— Tất cả —</option>
+							<?php foreach ( $action_labels as $key => $label ) : ?>
+							<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $filter_act, $key ); ?>><?php echo esc_html( $label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+					<div>
+						<label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Từ ngày</label>
+						<input type="date" name="date_from" value="<?php echo esc_attr( $date_from ); ?>">
+					</div>
+					<div>
+						<label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Đến ngày</label>
+						<input type="date" name="date_to" value="<?php echo esc_attr( $date_to ); ?>">
+					</div>
+					<div>
+						<input type="submit" class="button button-primary" value="🔍 Lọc">
+						<a href="<?php echo esc_url( $export_url ); ?>" class="button" style="margin-left:8px">📥 Xuất CSV</a>
+					</div>
+				</form>
+			</div>
+
+			<table class="widefat striped" style="max-width:1100px">
+				<thead>
+					<tr><th>#</th><th>Mod</th><th>Hành động</th><th>Đối tượng</th><th>Lý do</th><th>IP</th><th>Thời gian</th></tr>
+				</thead>
+				<tbody>
+				<?php if ( empty( $logs ) ) : ?>
+					<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Không có log nào.</td></tr>
+				<?php else : ?>
+					<?php foreach ( $logs as $log ) :
+						$mod = get_userdata( (int) $log['mod_id'] );
+						?>
+					<tr>
+						<td style="color:#94a3b8;font-size:12px">#<?php echo (int) $log['id']; ?></td>
+						<td>
+							<strong><?php echo $mod ? esc_html( $mod->display_name ) : '#' . (int) $log['mod_id']; ?></strong>
+							<?php if ( $mod ) : ?><br><small style="color:#94a3b8"><?php echo esc_html( $mod->user_email ); ?></small><?php endif; ?>
+						</td>
+						<td><?php echo esc_html( $action_labels[ $log['action'] ] ?? $log['action'] ); ?></td>
+						<td>
+							<span style="font-size:12px;color:#64748b"><?php echo esc_html( $log['target_type'] ?? '' ); ?></span>
+							<br><?php echo esc_html( $log['target_info'] ?: '#' . (int) $log['target_id'] ); ?>
+						</td>
+						<td style="max-width:200px;font-size:13px"><?php echo esc_html( $log['reason'] ?? '' ); ?></td>
+						<td style="font-size:12px;color:#94a3b8"><?php echo esc_html( $log['ip_address'] ?? '' ); ?></td>
+						<td style="font-size:12px;white-space:nowrap"><?php echo esc_html( $log['created_at'] ); ?></td>
+					</tr>
+					<?php endforeach; ?>
+				<?php endif; ?>
+				</tbody>
+			</table>
+		</div>
+		<?php
+	}
+
+	/* ── Handover ── */
+
+	public static function render_handover_page(): void {
+		$mod_roles = array_merge( [ PF_Constants::ROLE_GLOBAL_ADMIN ], PF_Constants::SECTION_MOD_ROLES );
+		$all_mods  = get_users( [ 'role__in' => $mod_roles, 'number' => 100 ] );
+		$nonce     = wp_create_nonce( 'pf_admin_action' );
+		?>
+		<div class="wrap">
+			<h1>🚪 Quy trình Bàn giao Sub-Admin</h1>
+			<p style="color:#64748b;max-width:700px">Khi một Sub-Admin rời khỏi vị trí, Super Admin cần hoàn thành đầy đủ quy trình bàn giao dưới đây trước khi thu hồi quyền.</p>
+
+			<?php foreach ( $all_mods as $mod ) :
+				$done      = get_user_meta( $mod->ID, PF_Constants::META_HANDOVER_DONE, true );
+				$log_count = PF_Logger::count_logs( $mod->ID );
+				$role      = PF_Constants::get_pf_role( $mod->ID );
+				$accepted  = get_user_meta( $mod->ID, PF_Constants::META_SUBADMIN_TERMS_ACCEPTED, true );
+
+				$export_url = add_query_arg( [
+					'action'    => 'pf_export_mod_log',
+					'mod_id'    => $mod->ID,
+					'date_from' => '2020-01-01',
+					'date_to'   => gmdate( 'Y-m-d' ),
+					'_wpnonce'  => $nonce,
+				], admin_url( 'admin-ajax.php' ) );
+				?>
+			<div class="card" style="max-width:760px;padding:24px;margin:16px 0;<?php echo $done ? 'opacity:.6' : ''; ?>">
+				<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+					<div>
+						<strong style="font-size:16px"><?php echo esc_html( $mod->display_name ); ?></strong>
+						<span style="background:#e0f2fe;color:#0369a1;padding:2px 10px;border-radius:12px;font-size:12px;margin-left:8px">
+							<?php echo esc_html( $role ?? 'unknown' ); ?>
+						</span>
+					</div>
+					<?php if ( $done ) : ?>
+					<span style="color:green;font-weight:600">✅ Đã bàn giao xong</span>
+					<?php endif; ?>
+				</div>
+
+				<div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:16px">
+					<h3 style="margin:0 0 12px;font-size:14px;color:#334155">Checklist bàn giao:</h3>
+
+					<label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;cursor:pointer">
+						<input type="checkbox" class="ho-check" data-uid="<?php echo (int) $mod->ID; ?>">
+						<span>📥 Đã xuất và lưu trữ toàn bộ Mod Log
+							<a href="<?php echo esc_url( $export_url ); ?>" style="font-size:12px;margin-left:8px">
+								(Tải CSV — <?php echo (int) $log_count; ?> records)
+							</a>
+						</span>
+					</label>
+
+					<label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;cursor:pointer">
+						<input type="checkbox" class="ho-check" data-uid="<?php echo (int) $mod->ID; ?>">
+						<span>🗑 Sub-Admin đã xóa dữ liệu diễn đàn khỏi thiết bị cá nhân</span>
+					</label>
+
+					<label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;cursor:pointer">
+						<input type="checkbox" class="ho-check" data-uid="<?php echo (int) $mod->ID; ?>">
+						<span>🔑 Đã thu hồi mọi quyền truy cập và đổi mật khẩu liên quan</span>
+					</label>
+
+					<label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;cursor:pointer">
+						<input type="checkbox" class="ho-check" data-uid="<?php echo (int) $mod->ID; ?>">
+						<span>📋 Đã bàn giao các công việc đang xử lý dở cho Sub-Admin kế tiếp</span>
+					</label>
+
+					<label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">
+						<input type="checkbox" class="ho-check" data-uid="<?php echo (int) $mod->ID; ?>">
+						<span>✅ Sub-Admin đã cam kết không sử dụng dữ liệu thành viên sau khi rời khỏi vị trí</span>
+					</label>
+				</div>
+
+				<p style="font-size:13px;color:#64748b">
+					📋 Tổng hành động đã ghi log: <strong><?php echo (int) $log_count; ?></strong> &nbsp;|&nbsp;
+					📅 Tham gia từ: <strong><?php echo esc_html( gmdate( 'd/m/Y', strtotime( $mod->user_registered ) ) ); ?></strong> &nbsp;|&nbsp;
+					🤝 Đã ký cam kết Sub-Admin: <strong><?php echo $accepted ? '✅ Có (' . esc_html( gmdate( 'd/m/Y', strtotime( $accepted ) ) ) . ')' : '❌ Chưa'; ?></strong>
+				</p>
+
+				<?php if ( ! $done ) : ?>
+				<button type="button" class="button button-primary ho-confirm-btn"
+					data-uid="<?php echo (int) $mod->ID; ?>"
+					data-nonce="<?php echo esc_attr( $nonce ); ?>"
+					style="margin-top:8px" disabled>
+					🚪 Xác nhận bàn giao &amp; Thu hồi quyền
+				</button>
+				<p style="font-size:12px;color:#dc2626;margin:6px 0 0">
+					⚠️ Sau khi xác nhận, tài khoản sẽ bị thu hồi quyền Sub-Admin ngay lập tức.
+				</p>
+				<?php else :
+					$by_id = (int) get_user_meta( $mod->ID, PF_Constants::META_HANDOVER_BY, true );
+					$by    = $by_id ? get_userdata( $by_id ) : null;
+					?>
+				<p style="color:#64748b;font-size:13px">
+					✅ Bàn giao xác nhận bởi: <strong><?php echo $by ? esc_html( $by->display_name ) : 'Super Admin'; ?></strong>
+					lúc <?php echo esc_html( get_user_meta( $mod->ID, PF_Constants::META_HANDOVER_AT, true ) ); ?>
+				</p>
+				<?php endif; ?>
+			</div>
+			<?php endforeach; ?>
+		</div>
+
+		<script>
+		document.querySelectorAll('.card').forEach(function(card) {
+			var checks = card.querySelectorAll('.ho-check');
+			var btn    = card.querySelector('.ho-confirm-btn');
+			if (!btn) return;
+
+			checks.forEach(function(c) {
+				c.addEventListener('change', function() {
+					var allChecked = Array.from(checks).every(function(x){ return x.checked; });
+					btn.disabled = !allChecked;
+				});
+			});
+
+			btn.addEventListener('click', function() {
+				if (!confirm('Xác nhận bàn giao và THU HỒI QUYỀN của Sub-Admin này?')) return;
+				var uid   = this.dataset.uid;
+				var nonce = this.dataset.nonce;
+				btn.textContent = '⏳ Đang xử lý...';
+				btn.disabled    = true;
+				fetch(ajaxurl, {
+					method: 'POST',
+					headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+					body: new URLSearchParams({action:'pf_confirm_handover', user_id:uid, _ajax_nonce:nonce})
+				}).then(r=>r.json()).then(function(d){
+					if (d.success) { alert('✅ '+d.data.message); location.reload(); }
+					else alert('❌ '+(d.data && d.data.message ? d.data.message : 'Lỗi'));
+				});
+			});
+		});
+		</script>
+		<?php
+	}
+
+	/* ── Ads settings ── */
+
+	public static function render_ads_settings_page(): void {
+		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) && check_admin_referer( 'pf_ads_save' ) ) {
+			update_option( 'pf_ads_enabled', isset( $_POST['ads_enabled'] ) );
+			update_option( 'pf_ads_slot_header', isset( $_POST['slot_header'] ) );
+			update_option( 'pf_ads_slot_sidebar', isset( $_POST['slot_sidebar'] ) );
+			update_option( 'pf_ads_slot_in_content', isset( $_POST['slot_in_content'] ) );
+			update_option( 'pf_ads_slot_affiliate', isset( $_POST['slot_affiliate'] ) );
+			update_option( 'pf_ads_slot_mobile_sticky', isset( $_POST['slot_mobile'] ) );
+
+			update_option( 'pf_adsense_client', sanitize_text_field( wp_unslash( $_POST['adsense_client'] ?? '' ) ) );
+			update_option( 'pf_adsense_slot_header', sanitize_text_field( wp_unslash( $_POST['slot_id_header'] ?? '' ) ) );
+			update_option( 'pf_adsense_slot_sidebar', sanitize_text_field( wp_unslash( $_POST['slot_id_sidebar'] ?? '' ) ) );
+			update_option( 'pf_adsense_slot_in_content', sanitize_text_field( wp_unslash( $_POST['slot_id_in_content'] ?? '' ) ) );
+			update_option( 'pf_adsense_slot_mobile', sanitize_text_field( wp_unslash( $_POST['slot_id_mobile'] ?? '' ) ) );
+
+			delete_option( 'pf_ads_forum_section_map' );
+
+			echo '<div class="notice notice-success"><p>✅ Đã lưu cấu hình quảng cáo.</p></div>';
+		}
+
+		$enabled     = get_option( 'pf_ads_enabled', false );
+		$s_header    = get_option( 'pf_ads_slot_header', false );
+		$s_sidebar   = get_option( 'pf_ads_slot_sidebar', false );
+		$s_content   = get_option( 'pf_ads_slot_in_content', false );
+		$s_affiliate = get_option( 'pf_ads_slot_affiliate', false );
+		$s_mobile    = get_option( 'pf_ads_slot_mobile_sticky', false );
+
+		$client      = get_option( 'pf_adsense_client', PF_Ads::ADSENSE_CLIENT );
+		$id_header   = get_option( 'pf_adsense_slot_header', PF_Ads::SLOT_HEADER );
+		$id_sidebar  = get_option( 'pf_adsense_slot_sidebar', PF_Ads::SLOT_SIDEBAR );
+		$id_content  = get_option( 'pf_adsense_slot_in_content', PF_Ads::SLOT_IN_CONTENT );
+		$id_mobile   = get_option( 'pf_adsense_slot_mobile', PF_Ads::SLOT_MOBILE );
+
+		$forum_map = get_option( 'pf_ads_forum_section_map', [] );
+		?>
+		<div class="wrap" style="max-width:760px">
+			<h1>📢 Cấu hình Quảng cáo</h1>
+
+			<div style="background:#fff3cd;border-left:4px solid #f59e0b;padding:12px 16px;margin:16px 0;border-radius:6px">
+				⚠️ Trước khi bật AdSense: đăng ký tại
+				<a href="https://adsense.google.com" target="_blank" rel="noopener">adsense.google.com</a>,
+				điền Publisher ID và Slot IDs bên dưới (hoặc trong <code>class-pf-ads.php</code>).
+			</div>
+
+			<form method="post">
+				<?php wp_nonce_field( 'pf_ads_save' ); ?>
+				<table class="form-table">
+					<tr>
+						<th>Bật toàn bộ quảng cáo</th>
+						<td><label><input type="checkbox" name="ads_enabled" value="1" <?php checked( $enabled ); ?>> Bật</label></td>
+					</tr>
+					<tr>
+						<th>AdSense Publisher ID</th>
+						<td>
+							<input type="text" name="adsense_client" value="<?php echo esc_attr( $client ); ?>" class="regular-text" placeholder="ca-pub-XXXXXXXXXX">
+							<p class="description">Publisher ID từ AdSense → Account → Account information</p>
+						</td>
+					</tr>
+					<tr><th colspan="2" style="background:#f8fafc;padding:10px 14px;font-size:12px;color:#64748b">— Vị trí AdSense —</th></tr>
+					<tr>
+						<th>Header Banner (728×90)</th>
+						<td>
+							<label><input type="checkbox" name="slot_header" value="1" <?php checked( $s_header ); ?>> Bật</label>
+							<input type="text" name="slot_id_header" value="<?php echo esc_attr( $id_header ); ?>" class="regular-text" placeholder="Slot ID" style="margin-top:6px">
+							<p class="description">Hiển thị bên dưới navigation trên toàn site</p>
+						</td>
+					</tr>
+					<tr>
+						<th>Sidebar (300×250)</th>
+						<td>
+							<label><input type="checkbox" name="slot_sidebar" value="1" <?php checked( $s_sidebar ); ?>> Bật</label>
+							<input type="text" name="slot_id_sidebar" value="<?php echo esc_attr( $id_sidebar ); ?>" class="regular-text" placeholder="Slot ID" style="margin-top:6px">
+							<p class="description">Sidebar homepage + widget area <code>pf-sidebar-ads</code></p>
+						</td>
+					</tr>
+					<tr>
+						<th>In-content (336×280)</th>
+						<td>
+							<label><input type="checkbox" name="slot_in_content" value="1" <?php checked( $s_content ); ?>> Bật</label>
+							<input type="text" name="slot_id_in_content" value="<?php echo esc_attr( $id_content ); ?>" class="regular-text" placeholder="Slot ID" style="margin-top:6px">
+							<p class="description">Chèn sau đoạn 2 trong WordPress posts / pet_news</p>
+						</td>
+					</tr>
+					<tr>
+						<th>Mobile Sticky (320×50)</th>
+						<td>
+							<label><input type="checkbox" name="slot_mobile" value="1" <?php checked( $s_mobile ); ?>> Bật</label>
+							<input type="text" name="slot_id_mobile" value="<?php echo esc_attr( $id_mobile ); ?>" class="regular-text" placeholder="Slot ID (để trống = dùng Header slot)" style="margin-top:6px">
+							<p class="description">Banner dính ở footer trên điện thoại</p>
+						</td>
+					</tr>
+					<tr><th colspan="2" style="background:#f8fafc;padding:10px 14px;font-size:12px;color:#64748b">— Vị trí Affiliate —</th></tr>
+					<tr>
+						<th>Affiliate (forum + sidebar)</th>
+						<td>
+							<label><input type="checkbox" name="slot_affiliate" value="1" <?php checked( $s_affiliate ); ?>> Bật</label>
+							<p class="description">3 sản phẩm sau bài đầu topic + 2 sản phẩm trong sidebar</p>
+						</td>
+					</tr>
+				</table>
+				<p><button type="submit" class="button button-primary">💾 Lưu cấu hình</button></p>
+			</form>
+
+			<?php if ( ! empty( $forum_map ) ) : ?>
+			<hr style="margin:32px 0">
+			<h3>🗺 Forum → Section map (tự động)</h3>
+			<table class="widefat striped" style="max-width:400px">
+				<thead><tr><th>Forum ID</th><th>Section</th></tr></thead>
+				<tbody>
+				<?php foreach ( $forum_map as $fid => $sec ) : ?>
+				<tr><td><?php echo (int) $fid; ?></td><td><?php echo esc_html( $sec ); ?></td></tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+			<?php endif; ?>
+
+			<hr style="margin:32px 0">
+			<h3>📊 Hướng dẫn lấy Slot ID từ Google AdSense</h3>
+			<ol style="line-height:2">
+				<li>Đăng nhập <a href="https://adsense.google.com" target="_blank" rel="noopener">adsense.google.com</a></li>
+				<li>Ads → By ad unit → <strong>Create new ad unit</strong></li>
+				<li>Chọn loại: Display ads (Header/Sidebar) hoặc In-article ads (In-content)</li>
+				<li>Sao chép <code>data-ad-slot="XXXXXXXXXX"</code></li>
+				<li>Dán vào form trên hoặc constants trong <code>class-pf-ads.php</code></li>
+			</ol>
+
+			<h3>🛒 Hướng dẫn Affiliate Shopee</h3>
+			<ol style="line-height:2">
+				<li>Đăng ký <a href="https://affiliate.shopee.vn" target="_blank" rel="noopener">affiliate.shopee.vn</a></li>
+				<li>Tìm sản phẩm → Generate Link</li>
+				<li>Cập nhật mảng <code>get_affiliate_products()</code> trong <code>class-pf-ads.php</code></li>
+			</ol>
+		</div>
 		<?php
 	}
 }

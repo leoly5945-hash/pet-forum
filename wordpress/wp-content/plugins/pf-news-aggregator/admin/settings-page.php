@@ -73,24 +73,35 @@ class PF_News_Admin {
 		$news_count  = (int) wp_count_posts( 'pet_news' )->publish;
 		$last_created = (int) get_option( 'pf_news_last_fetch_count', 0 );
 		$fetched     = isset( $_GET['fetched'] ) ? intval( $_GET['fetched'] ) : null;
+		$next_cron   = wp_next_scheduled( 'pf_fetch_rss_event' );
 		?>
 		<div class="wrap pf-news-admin">
 			<h1>📡 PF News Aggregator</h1>
 
 			<?php if ( null !== $fetched ) : ?>
-				<div class="notice notice-success"><p>Đã fetch xong — tạo mới <?php echo esc_html( (string) $fetched ); ?> bài.</p></div>
+				<div class="notice notice-success"><p>✅ Đã cập nhật tin tức — tạo mới <?php echo esc_html( (string) $fetched ); ?> bài.</p></div>
 			<?php endif; ?>
 
 			<div class="pf-admin-grid">
 				<div class="pf-admin-card">
 					<h2>Trạng thái</h2>
-					<p><strong>Tổng tin tức:</strong> <?php echo esc_html( (string) $news_count ); ?></p>
-					<p><strong>Lần fetch gần nhất:</strong> <?php echo esc_html( $last_fetch ); ?></p>
-					<p><strong>Bài tạo lần cuối:</strong> <?php echo esc_html( (string) $last_created ); ?></p>
+					<p>📦 <strong>Tổng tin tức:</strong> <?php echo esc_html( (string) $news_count ); ?></p>
+					<p>🕐 <strong>Lần fetch gần nhất:</strong> <?php echo esc_html( $last_fetch ); ?></p>
+					<p>📝 <strong>Bài tạo lần cuối:</strong> <?php echo esc_html( (string) $last_created ); ?></p>
+					<p>⏰ <strong>Lần cập nhật kế tiếp:</strong>
+						<?php
+						if ( $next_cron ) {
+							echo esc_html( human_time_diff( $next_cron, current_time( 'timestamp' ) ) . ' nữa' );
+						} else {
+							echo '❌ Chưa được lên lịch';
+						}
+						?>
+					</p>
+					<p>🔄 <strong>Tần suất:</strong> Mỗi 30 phút</p>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<?php wp_nonce_field( 'pf_fetch_now' ); ?>
 						<input type="hidden" name="action" value="pf_fetch_now">
-						<?php submit_button( 'Fetch ngay bây giờ', 'primary', 'submit', false ); ?>
+						<?php submit_button( '🔄 Cập nhật tin tức ngay bây giờ', 'primary large', 'submit', false ); ?>
 					</form>
 				</div>
 

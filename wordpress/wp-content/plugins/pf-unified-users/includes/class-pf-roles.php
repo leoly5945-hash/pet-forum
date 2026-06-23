@@ -27,6 +27,11 @@ class PF_Roles_V2 {
 		add_filter( 'editable_roles', [ __CLASS__, 'filter_editable_roles' ] );
 		add_action( 'edit_user_profile_update', [ __CLASS__, 'block_editing_admins' ] );
 		add_action( 'personal_options_update', [ __CLASS__, 'block_editing_admins' ] );
+
+		add_action( 'template_redirect', [ __CLASS__, 'protect_subadmin_conduct_page' ] );
+		add_action( 'wp_head', [ __CLASS__, 'maybe_show_subadmin_popup' ] );
+		add_action( 'admin_head', [ __CLASS__, 'maybe_show_subadmin_popup' ] );
+		add_action( 'wp_ajax_pf_accept_subadmin_terms', [ __CLASS__, 'ajax_accept_subadmin_terms' ] );
 	}
 
 	private static $blocked_menus_global = [
@@ -589,6 +594,213 @@ class PF_Roles_V2 {
 			$wp_admin_bar->remove_node( 'dashboard' );
 			$wp_admin_bar->remove_node( 'site-name' );
 		}
+	}
+
+	public static function is_subadmin_user( $user_id = 0 ) {
+		if ( ! $user_id ) {
+			$user_id = get_current_user_id();
+		}
+		if ( ! $user_id ) {
+			return false;
+		}
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		$role = PF_Constants::get_pf_role( $user_id );
+		if ( ! $role || $role === PF_Constants::ROLE_VERIFIED_VET ) {
+			return false;
+		}
+
+		return $role === PF_Constants::ROLE_GLOBAL_ADMIN
+			|| in_array( $role, PF_Constants::SECTION_MOD_ROLES, true );
+	}
+
+	public static function protect_subadmin_conduct_page() {
+		if ( ! is_page( 'subadmin-conduct' ) ) {
+			return;
+		}
+
+		if ( ! is_user_logged_in() ) {
+			wp_safe_redirect( wp_login_url( get_permalink() ) );
+			exit;
+		}
+
+		if ( ! self::is_subadmin_user() ) {
+			wp_die(
+				'<h2>🚫 Truy cập bị từ chối</h2><p>Trang này chỉ dành cho Sub-Admin và Ban quản trị.</p>',
+				'Không có quyền truy cập',
+				[ 'response' => 403 ]
+			);
+		}
+	}
+
+	public static function maybe_show_subadmin_popup() {
+		if ( wp_doing_ajax() || ! is_user_logged_in() ) {
+			return;
+		}
+
+		$uid = get_current_user_id();
+		if ( ! self::is_subadmin_user( $uid ) ) {
+			return;
+		}
+
+		$accepted_version = get_user_meta( $uid, PF_Constants::META_SUBADMIN_TERMS_VERSION, true );
+		if ( $accepted_version === PF_Constants::SUBADMIN_TERMS_VERSION ) {
+			return;
+		}
+
+		$conduct_url = home_url( '/subadmin-conduct/' );
+		$nonce       = wp_create_nonce( 'pf_subadmin_terms' );
+		$lang        = get_user_meta( $uid, PF_Constants::META_PREFERRED_LANG, true ) ?: 'vi';
+		$user        = get_userdata( $uid );
+
+		if ( ! $user ) {
+			return;
+		}
+
+		include PFU_DIR . 'templates/partials/subadmin-terms-popup.php';
+	}
+
+	public static function ajax_accept_subadmin_terms() {
+		check_ajax_referer( 'pf_subadmin_terms' );
+
+		$uid = get_current_user_id();
+		if ( ! $uid || ! self::is_subadmin_user( $uid ) ) {
+			wp_send_json_error( [ 'message' => 'Không có quyền.' ] );
+		}
+
+		update_user_meta( $uid, PF_Constants::META_SUBADMIN_TERMS_ACCEPTED, current_time( 'mysql' ) );
+		update_user_meta( $uid, PF_Constants::META_SUBADMIN_TERMS_VERSION, PF_Constants::SUBADMIN_TERMS_VERSION );
+
+		$user = get_userdata( $uid );
+		if ( $user ) {
+			error_log(
+				sprintf(
+					'[PetForum] Sub-Admin #%d (%s) accepted conduct terms v%s at %s',
+					$uid,
+					$user->user_email,
+					PF_Constants::SUBADMIN_TERMS_VERSION,
+					current_time( 'mysql' )
+				)
+			);
+		}
+
+		wp_send_json_success( [ 'message' => 'Đã ghi nhận cam kết.' ] );
+	}
+
+	/* ── Warning / moderation escalation ── */
+
+	public static function warn_user( int $user_id, string $reason, int $level = 1 ): void {
+		$current   = (int) get_user_meta( $user_id, PF_Constants::META_WARN_LEVEL, true );
+		$count     = (int) get_user_meta( $user_id, PF_Constants::META_WARN_COUNT, true );
+		$new_level = max( $current, $level );
+		$by        = get_current_user_id();
+
+		update_user_meta( $user_id, PF_Constants::META_WARN_LEVEL, $new_level );
+		update_user_meta( $user_id, PF_Constants::META_WARN_COUNT, $count + 1 );
+		update_user_meta( $user_id, PF_Constants::META_WARN_REASON, $reason );
+		update_user_meta( $user_id, PF_Constants::META_WARN_BY, $by );
+		update_user_meta( $user_id, PF_Constants::META_WARN_AT, current_time( 'mysql' ) );
+
+		$history   = (array) get_user_meta( $user_id, PF_Constants::META_WARN_HISTORY, true );
+		$history[] = [
+			'level'  => $new_level,
+			'reason' => $reason,
+			'by'     => $by,
+			'at'     => current_time( 'mysql' ),
+		];
+		update_user_meta( $user_id, PF_Constants::META_WARN_HISTORY, $history );
+
+		if ( $new_level >= PF_Constants::WARN_RESTRICTED ) {
+			update_user_meta( $user_id, PF_Constants::META_RESTRICTED, '1' );
+		}
+
+		if ( $new_level >= PF_Constants::WARN_BANNED ) {
+			update_user_meta( $user_id, PF_Constants::META_BANNED, '1' );
+			update_user_meta( $user_id, PF_Constants::META_BANNED_BY, $by );
+			update_user_meta( $user_id, PF_Constants::META_BANNED_AT, current_time( 'mysql' ) );
+			update_user_meta( $user_id, PF_Constants::META_ACCOUNT_ACTIVE, '0' );
+
+			if ( function_exists( 'WPF' ) ) {
+				global $wpdb;
+				$wpdb->update(
+					WPF()->tables->profiles,
+					[ 'status' => 'banned' ],
+					[ 'userid' => $user_id ],
+					[ '%s' ],
+					[ '%d' ]
+				);
+				WPF()->member->reset( $user_id );
+			}
+
+			if ( class_exists( 'WP_Session_Tokens' ) ) {
+				WP_Session_Tokens::get_instance( $user_id )->destroy_all();
+			}
+		}
+
+		self::send_warning_email( $user_id, $reason, $new_level );
+	}
+
+	public static function clear_warning( int $user_id ): void {
+		update_user_meta( $user_id, PF_Constants::META_WARN_LEVEL, PF_Constants::WARN_NONE );
+		update_user_meta( $user_id, PF_Constants::META_RESTRICTED, '0' );
+		update_user_meta( $user_id, PF_Constants::META_BANNED, '0' );
+		update_user_meta( $user_id, PF_Constants::META_ACCOUNT_ACTIVE, '1' );
+
+		if ( function_exists( 'WPF' ) ) {
+			global $wpdb;
+			$wpdb->update(
+				WPF()->tables->profiles,
+				[ 'status' => 'active' ],
+				[ 'userid' => $user_id ],
+				[ '%s' ],
+				[ '%d' ]
+			);
+			WPF()->member->reset( $user_id );
+		}
+
+		self::send_warning_cleared_email( $user_id );
+	}
+
+	private static function send_warning_email( int $user_id, string $reason, int $level ): void {
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return;
+		}
+
+		$lang = get_user_meta( $user_id, PF_Constants::META_PREFERRED_LANG, true ) ?: 'vi';
+
+		$level_labels = [
+			1 => [ 'vi' => '⚠️ Cảnh báo', 'en' => '⚠️ Warning' ],
+			2 => [ 'vi' => '🔴 Cảnh cáo', 'en' => '🔴 Caution' ],
+			3 => [ 'vi' => '🔒 Hạn chế đăng bài', 'en' => '🔒 Posting restricted' ],
+			4 => [ 'vi' => '🚫 Tài khoản bị khóa', 'en' => '🚫 Account banned' ],
+		];
+
+		$label   = $level_labels[ $level ][ $lang ] ?? $level_labels[ $level ]['vi'];
+		$subject = '[' . get_bloginfo( 'name' ) . '] ' . $label;
+
+		$body = $lang === 'en'
+			? "<p>Your account has received: <strong>{$label}</strong></p><p>Reason: {$reason}</p><p>Please review our community rules to avoid further action.</p>"
+			: "<p>Tài khoản của bạn nhận: <strong>{$label}</strong></p><p>Lý do: {$reason}</p><p>Vui lòng xem lại nội quy để tránh bị xử lý thêm.</p>";
+
+		wp_mail( $user->user_email, $subject, $body, [ 'Content-Type: text/html; charset=UTF-8' ] );
+	}
+
+	private static function send_warning_cleared_email( int $user_id ): void {
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return;
+		}
+
+		$lang    = get_user_meta( $user_id, PF_Constants::META_PREFERRED_LANG, true ) ?: 'vi';
+		$subject = '[' . get_bloginfo( 'name' ) . '] ' . ( $lang === 'en' ? 'Warning cleared' : 'Đã gỡ cảnh báo' );
+		$body    = $lang === 'en'
+			? '<p>Your account warnings have been cleared. Please continue to follow community rules.</p>'
+			: '<p>Cảnh báo trên tài khoản của bạn đã được gỡ. Vui lòng tiếp tục tuân thủ nội quy cộng đồng.</p>';
+
+		wp_mail( $user->user_email, $subject, $body, [ 'Content-Type: text/html; charset=UTF-8' ] );
 	}
 
 	private static function load_email_template( $slug, $vars, $fallback ) {

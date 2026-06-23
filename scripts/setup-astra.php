@@ -26,19 +26,19 @@ $astra_settings = array_merge(
 			'mobile-unit'  => 'px',
 		),
 		'headings-font-family'            => 'Inter, sans-serif',
-		'header-main-bg-color'            => '#1a1a2e',
-		'header-main-bg-color-responsive' => '#1a1a2e',
-		'site-title-color'                => '#ffffff',
-		'header-color-site-title'         => '#ffffff',
+		'header-main-bg-color'            => '#ffffff',
+		'header-main-bg-color-responsive' => '#ffffff',
+		'site-title-color'                => '#1b4332',
+		'header-color-site-title'         => '#1b4332',
 		'site-sidebar-layout'             => 'no-sidebar',
 		'single-sidebar-layout'           => 'no-sidebar',
 		'archive-sidebar-layout'          => 'no-sidebar',
 		'page-sidebar-layout'             => 'no-sidebar',
-		'footer-bg-color'                 => '#1a1a2e',
-		'footer-color'                    => '#aaaaaa',
-		'footer-copyright-color'          => '#888888',
-		'button-bg-color'                 => '#0ea5e9',
-		'button-bg-h-color'               => '#0284c7',
+		'footer-bg-color'                 => '#1b4332',
+		'footer-color'                    => '#d8f3dc',
+		'footer-copyright-color'          => '#95d5b2',
+		'button-bg-color'                 => '#40916c',
+		'button-bg-h-color'               => '#2d6a4f',
 		'button-color'                    => '#ffffff',
 		'button-radius'                   => 6,
 	)
@@ -77,46 +77,38 @@ $custom_css = <<<'CSS'
 }
 .wpforo-wrap .wpft-topic-head,
 .wpforo-wrap .wpf-forum-head {
-	background: #1a1a2e !important;
+	background: #2d6a4f !important;
 	color: #ffffff !important;
 	border-radius: 8px 8px 0 0;
 }
 .wpforo-wrap .wpf-forum-title a,
 .wpforo-wrap .wpforo-forum-title a {
-	color: #0ea5e9 !important;
+	color: #40916c !important;
 	font-weight: 600;
 }
 .wpforo-wrap .wpf-forum-title a:hover {
-	color: #0284c7 !important;
+	color: #2d6a4f !important;
 }
 .wpforo-wrap .wpforo-button,
 .wpforo-wrap .wpf-btn {
-	background: #0ea5e9 !important;
-	border-color: #0ea5e9 !important;
+	background: #40916c !important;
+	border-color: #40916c !important;
 	border-radius: 6px !important;
 	color: #fff !important;
 }
 .wpforo-wrap .wpforo-button:hover,
 .wpforo-wrap .wpf-btn:hover {
-	background: #0284c7 !important;
+	background: #2d6a4f !important;
 }
 .wpforo-wrap .wpf-breadcrumb {
-	background: #f0f9ff;
+	background: #f0f7ee;
 	padding: 8px 16px;
 	border-radius: 6px;
 	margin-bottom: 16px;
 }
 .wpforo-wrap .wpf-singleforum-wrap:hover {
-	box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+	box-shadow: 0 4px 12px rgba(64, 145, 108, 0.15);
 	transition: box-shadow 0.2s ease;
-}
-.ast-header-break-point .main-header-bar,
-.site-header .main-header-bar {
-	background: #1a1a2e;
-}
-.site-header .site-title a,
-.site-header .site-title {
-	color: #ffffff !important;
 }
 #secondary,
 .widget-area {

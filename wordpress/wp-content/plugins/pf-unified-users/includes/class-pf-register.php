@@ -54,16 +54,21 @@ class PF_Register_V2 {
 			'pf-register',
 			'pfRegSplit',
 			[
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'nonce'   => wp_create_nonce( 'pf_split_register' ),
-				'strings' => [
-					'uploading'      => '⏳ Đang tải lên...',
-					'registering'    => '⏳ Đang đăng ký...',
-					'file_too_large' => 'File quá lớn (tối đa 5MB).',
-					'file_type'      => 'Chỉ chấp nhận PDF, JPG, PNG.',
-					'required'       => 'Vui lòng điền đầy đủ thông tin bắt buộc.',
-				],
+				'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
+				'nonce'       => wp_create_nonce( 'pf_split_register' ),
+				'lang'        => PF_I18n::current_lang(),
+				'strings'     => PF_I18n::js_strings( PF_I18n::current_lang() ),
+				'termsUrl'    => home_url( '/terms/' ),
+				'termsVetUrl' => home_url( '/terms-for-vets/' ),
+				'termsVi'     => 'Điều khoản sử dụng',
+				'termsEn'     => 'Terms of Service',
 			]
+		);
+
+		wp_add_inline_script(
+			'pf-register',
+			'window.pfReg = window.pfReg || window.pfRegSplit;',
+			'before'
 		);
 
 		wp_localize_script(
@@ -97,8 +102,38 @@ class PF_Register_V2 {
 	}
 
 	public static function render_split_register() {
+		return self::render_page();
+	}
+
+	public static function render_page() {
 		if ( is_user_logged_in() ) {
-			return '<div class="pf-split-register"><p>Bạn đã đăng nhập. <a href="' . esc_url( home_url( '/' ) ) . '">Về trang chủ →</a></p></div>';
+			$lang = PF_I18n::current_lang();
+
+			return '<div class="pf-split-register"><p>' . esc_html( PF_I18n::get( 'logged_in_msg', $lang ) )
+				. ' <a href="' . esc_url( home_url( '/' ) ) . '">' . esc_html( PF_I18n::get( 'home_link', $lang ) ) . '</a></p></div>';
+		}
+
+		if ( ! empty( $_GET['pf_status'] ) && sanitize_text_field( wp_unslash( $_GET['pf_status'] ) ) === 'vet_pending' ) {
+			ob_start();
+			include PFU_DIR . 'templates/split-register.php';
+
+			return ob_get_clean();
+		}
+
+		$type = self::get_initial_register_type();
+
+		if ( $type === 'member' ) {
+			ob_start();
+			include PFU_DIR . 'templates/form-member.php';
+
+			return ob_get_clean();
+		}
+
+		if ( $type === 'vet' ) {
+			ob_start();
+			include PFU_DIR . 'templates/form-vet.php';
+
+			return ob_get_clean();
 		}
 
 		ob_start();
@@ -107,28 +142,56 @@ class PF_Register_V2 {
 		return ob_get_clean();
 	}
 
+	/**
+	 * URL đăng ký — /register/?type=member|vet hoặc /register/.
+	 */
+	public static function register_url( $type = '', $lang = '' ) {
+		return PF_I18n::register_page_url( $type, $lang );
+	}
+
+	/**
+	 * Deep-link: ?type=vet|member → mở thẳng form tương ứng.
+	 */
+	public static function get_initial_register_type() {
+		if ( empty( $_GET['type'] ) ) {
+			return '';
+		}
+
+		$type = sanitize_key( wp_unslash( $_GET['type'] ) );
+
+		return in_array( $type, [ 'member', 'vet' ], true ) ? $type : '';
+	}
+
 	/* ── Registration AJAX ── */
 
 	public static function ajax_register_member() {
 		check_ajax_referer( 'pf_split_register', 'nonce' );
 
+		$lang = sanitize_key( wp_unslash( $_POST['lang'] ?? 'vi' ) );
+		if ( ! in_array( $lang, [ 'vi', 'en' ], true ) ) {
+			$lang = 'vi';
+		}
+
+		if ( empty( $_POST['agree_terms'] ) ) {
+			wp_send_json_error( [ 'message' => PF_I18n::get( 'err_terms_required', $lang ) ] );
+		}
+
 		$email    = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
 		$password = wp_unslash( $_POST['password'] ?? '' );
 		$username = sanitize_text_field( wp_unslash( $_POST['username'] ?? '' ) );
 		$country  = sanitize_text_field( wp_unslash( $_POST['country'] ?? '' ) );
-		$lang     = sanitize_text_field( wp_unslash( $_POST['lang'] ?? 'vi' ) );
 		$pets     = array_map( 'sanitize_text_field', (array) ( $_POST['pet_types'] ?? [] ) );
 
-		$errors = self::validate_base( $email, $password );
+		$errors = self::validate_base( $email, $password, $lang );
 		if ( empty( $country ) ) {
-			$errors[] = 'Quốc gia là bắt buộc.';
+			$errors[] = PF_I18n::get( 'err_country_required', $lang );
 		}
 		if ( ! empty( $errors ) ) {
 			wp_send_json_error( [ 'message' => implode( ' ', $errors ) ] );
 		}
 
 		if ( PF_AntiSpam_V2::is_disposable_email( $email ) ) {
-			wp_send_json_error( [ 'message' => 'Email tạm thời không được chấp nhận.' ] );
+			wp_send_json_error( [ 'message' => PF_I18n::get( 'err_disposable', $lang ) ] );
 		}
 
 		if ( empty( $username ) ) {
@@ -156,7 +219,7 @@ class PF_Register_V2 {
 		}
 
 		wp_send_json_success( [
-			'message' => '✅ Đăng ký thành công! Kiểm tra email <strong>' . esc_html( $email ) . '</strong> để xác thực tài khoản.',
+			'message' => sprintf( PF_I18n::get( 'member_success_msg', $lang ), esc_html( $email ) ),
 			'type'    => 'member',
 		] );
 	}
@@ -164,33 +227,49 @@ class PF_Register_V2 {
 	public static function ajax_register_vet() {
 		check_ajax_referer( 'pf_split_register', 'nonce' );
 
+		$lang = sanitize_key( wp_unslash( $_POST['lang'] ?? 'vi' ) );
+		if ( ! in_array( $lang, [ 'vi', 'en' ], true ) ) {
+			$lang = 'vi';
+		}
+
+		if ( empty( $_POST['agree_terms'] ) ) {
+			wp_send_json_error( [ 'message' => PF_I18n::get( 'err_terms_required', $lang ) ] );
+		}
+
+		if ( empty( $_POST['vet_credential_confirm'] ) ) {
+			wp_send_json_error( [ 'message' => PF_I18n::get( 'err_vet_credential', $lang ) ] );
+		}
+
+		if ( empty( $_POST['agree_vet_terms'] ) ) {
+			wp_send_json_error( [ 'message' => PF_I18n::get( 'err_vet_terms_required', $lang ) ] );
+		}
+
 		$email     = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
 		$password  = wp_unslash( $_POST['password'] ?? '' );
 		$username  = sanitize_text_field( wp_unslash( $_POST['username'] ?? '' ) );
 		$phone     = sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) );
 		$workplace = sanitize_text_field( wp_unslash( $_POST['workplace'] ?? '' ) );
 		$specialty = sanitize_text_field( wp_unslash( $_POST['specialty'] ?? '' ) );
-		$lang      = sanitize_text_field( wp_unslash( $_POST['lang'] ?? 'vi' ) );
 
-		$errors = self::validate_base( $email, $password );
+		$errors = self::validate_base( $email, $password, $lang );
 		if ( empty( $phone ) ) {
-			$errors[] = 'Số điện thoại là bắt buộc.';
+			$errors[] = PF_I18n::get( 'err_phone_required', $lang );
 		}
 		if ( empty( $workplace ) ) {
-			$errors[] = 'Nơi công tác là bắt buộc.';
+			$errors[] = PF_I18n::get( 'err_workplace_req', $lang );
 		}
 		if ( empty( $username ) ) {
-			$errors[] = 'Tên hiển thị là bắt buộc.';
+			$errors[] = PF_I18n::get( 'err_display_name_req', $lang );
 		}
 		if ( ! empty( $errors ) ) {
 			wp_send_json_error( [ 'message' => implode( ' ', $errors ) ] );
 		}
 
 		if ( empty( $_FILES['certificate']['name'] ) ) {
-			wp_send_json_error( [ 'message' => 'Vui lòng tải lên bằng cấp / chứng chỉ.' ] );
+			wp_send_json_error( [ 'message' => PF_I18n::get( 'err_cert_required', $lang ) ] );
 		}
 
-		$file_result = self::handle_certificate_upload( $email );
+		$file_result = self::handle_certificate_upload( $email, $lang );
 		if ( is_wp_error( $file_result ) ) {
 			wp_send_json_error( [ 'message' => $file_result->get_error_message() ] );
 		}
@@ -218,6 +297,7 @@ class PF_Register_V2 {
 		update_user_meta( $user_id, PF_Constants::META_VET_STATUS, 'pending' );
 		update_user_meta( $user_id, PF_Constants::META_EMAIL_VERIFIED, '1' );
 		update_user_meta( $user_id, PF_Constants::META_ACCOUNT_ACTIVE, '0' );
+		update_user_meta( $user_id, PF_Constants::META_VET_TERMS_ACCEPTED, current_time( 'mysql' ) );
 
 		self::notify_admin_new_vet( $user_id, $email, $workplace, $specialty );
 		PF_Roles_V2::send_vet_pending_email( $user_id );
@@ -228,7 +308,7 @@ class PF_Register_V2 {
 		] );
 	}
 
-	public static function handle_certificate_upload( $email_hint = '' ) {
+	public static function handle_certificate_upload( $email_hint = '', $lang = 'vi' ) {
 		$file = $_FILES['certificate'];
 
 		$finfo = finfo_open( FILEINFO_MIME_TYPE );
@@ -237,11 +317,11 @@ class PF_Register_V2 {
 
 		$allowed = [ 'image/jpeg', 'image/png', 'image/jpg', 'application/pdf' ];
 		if ( ! in_array( $mime, $allowed, true ) ) {
-			return new WP_Error( 'invalid_type', 'Chỉ chấp nhận PDF, JPG, PNG.' );
+			return new WP_Error( 'invalid_type', PF_I18n::get( 'err_file_type', $lang ) );
 		}
 
 		if ( (int) $file['size'] > 5 * 1024 * 1024 ) {
-			return new WP_Error( 'too_large', 'File quá lớn. Tối đa 5MB.' );
+			return new WP_Error( 'too_large', PF_I18n::get( 'err_file_size', $lang ) );
 		}
 
 		$upload_dir = wp_upload_dir();
@@ -418,6 +498,14 @@ class PF_Register_V2 {
 			return $user;
 		}
 
+		if ( PF_Constants::is_user_banned( $user->ID ) ) {
+			return new WP_Error(
+				'pf_banned',
+				'Tài khoản của bạn đã bị khóa. Liên hệ quản trị viên nếu bạn cho rằng đây là nhầm lẫn.',
+				[ 'status' => 403 ]
+			);
+		}
+
 		if ( get_user_meta( $user->ID, PF_Constants::META_USER_TYPE, true ) === PF_Constants::TYPE_VET_PENDING ) {
 			return $user;
 		}
@@ -530,16 +618,16 @@ class PF_Register_V2 {
 
 	/* ── Helpers ── */
 
-	private static function validate_base( $email, $password ) {
+	private static function validate_base( $email, $password, $lang = 'vi' ) {
 		$errors = [];
 		if ( ! is_email( $email ) ) {
-			$errors[] = 'Email không hợp lệ.';
+			$errors[] = PF_I18n::get( 'err_email_invalid', $lang );
 		}
 		if ( email_exists( $email ) ) {
-			$errors[] = 'Email này đã được đăng ký.';
+			$errors[] = PF_I18n::get( 'err_email_exists', $lang );
 		}
 		if ( strlen( (string) $password ) < 8 ) {
-			$errors[] = 'Mật khẩu tối thiểu 8 ký tự.';
+			$errors[] = PF_I18n::get( 'err_pass_short', $lang );
 		}
 
 		return $errors;

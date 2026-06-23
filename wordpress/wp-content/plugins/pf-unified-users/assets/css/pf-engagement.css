@@ -1,0 +1,137 @@
+.pf-feedback-wrap {
+	max-width: 600px;
+	margin: 0 auto;
+	padding: 0 16px 40px;
+}
+
+.pf-feedback-header {
+	text-align: center;
+	margin-bottom: 28px;
+}
+
+.pf-feedback-header h2 {
+	color: #1b4332;
+	font-size: 1.4rem;
+	margin-bottom: 6px;
+}
+
+.pf-feedback-header p {
+	color: #6b7c6e;
+	font-size: 14px;
+}
+
+.pf-fb-row-2 {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 16px;
+}
+
+@media (max-width: 500px) {
+	.pf-fb-row-2 {
+		grid-template-columns: 1fr;
+	}
+}
+
+.pf-fb-field {
+	margin-bottom: 16px;
+}
+
+.pf-fb-field label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: #334155;
+	margin-bottom: 6px;
+}
+
+.pf-fb-field input[type="text"],
+.pf-fb-field input[type="email"],
+.pf-fb-field select,
+.pf-fb-field textarea {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid #d1d5db;
+	border-radius: 8px;
+	font-size: 14px;
+	box-sizing: border-box;
+	font-family: inherit;
+}
+
+.pf-fb-field textarea {
+	resize: vertical;
+	min-height: 120px;
+}
+
+.pf-fb-field input:focus,
+.pf-fb-field select:focus,
+.pf-fb-field textarea:focus {
+	outline: none;
+	border-color: #40916c;
+	box-shadow: 0 0 0 3px rgba(64, 145, 108, 0.15);
+}
+
+.pf-fb-stars {
+	display: flex;
+	flex-direction: row-reverse;
+	gap: 4px;
+	justify-content: flex-end;
+}
+
+.pf-fb-stars input {
+	display: none;
+}
+
+.pf-fb-stars label {
+	font-size: 28px;
+	cursor: pointer;
+	opacity: 0.3;
+	transition: opacity 0.15s;
+	margin: 0;
+}
+
+.pf-fb-stars input:checked ~ label,
+.pf-fb-stars label:hover,
+.pf-fb-stars label:hover ~ label {
+	opacity: 1;
+}
+
+.pf-fb-btn {
+	background: #40916c;
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+	padding: 12px 32px;
+	font-size: 15px;
+	font-weight: 700;
+	cursor: pointer;
+	transition: all 0.2s;
+	width: 100%;
+}
+
+.pf-fb-btn:hover {
+	background: #2d6a4f;
+	transform: translateY(-1px);
+}
+
+.pf-fb-btn:disabled {
+	opacity: 0.6;
+	cursor: wait;
+}
+
+.pf-fb-success {
+	background: #d8f3dc;
+	color: #1b4332;
+	padding: 14px 18px;
+	border-radius: 8px;
+	margin-top: 16px;
+	font-weight: 600;
+}
+
+.pf-fb-error {
+	background: #fff0f0;
+	color: #dc2626;
+	padding: 14px 18px;
+	border-radius: 8px;
+	margin-top: 16px;
+	font-weight: 600;
+}

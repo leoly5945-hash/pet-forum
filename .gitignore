@@ -18,6 +18,7 @@ wordpress/wp-content/themes/astra/*
 !wordpress/wp-content/themes/astra/functions.php
 !wordpress/wp-content/themes/astra/inc/language-switcher.php
 !wordpress/wp-content/themes/astra/inc/pf-home.php
+!wordpress/wp-content/themes/astra/inc/pf-auth-nav.php
 !wordpress/wp-content/themes/astra/js/
 !wordpress/wp-content/themes/astra/js/pf-*.js
 !wordpress/wp-content/themes/astra/css/

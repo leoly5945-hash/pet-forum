@@ -32,25 +32,7 @@ class PF_Frontend_Mod_V2 {
 	}
 
 	public static function create_log_table() {
-		global $wpdb;
-		$table   = $wpdb->prefix . 'pf_mod_log';
-		$charset = $wpdb->get_charset_collate();
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta(
-			"CREATE TABLE $table (
-				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-				mod_id BIGINT UNSIGNED NOT NULL,
-				action VARCHAR(50) NOT NULL DEFAULT '',
-				target_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-				forum_id INT UNSIGNED NOT NULL DEFAULT 0,
-				ip VARCHAR(45) NOT NULL DEFAULT '',
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (id),
-				KEY idx_mod (mod_id),
-				KEY idx_action (action)
-			) $charset;"
-		);
+		PF_Logger::create_tables();
 	}
 
 	public static function enqueue_assets() {
@@ -173,6 +155,18 @@ class PF_Frontend_Mod_V2 {
 		<?php
 	}
 
+	public static function check_mod_permission( int $forum_id ): bool {
+		$user_id = get_current_user_id();
+		if ( ! $user_id ) {
+			return false;
+		}
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		return PF_Roles_V2::user_can_moderate_forum( $user_id, $forum_id );
+	}
+
 	public static function ajax_pin_topic() {
 		check_ajax_referer( 'pf_mod_action', 'nonce' );
 
@@ -180,8 +174,8 @@ class PF_Frontend_Mod_V2 {
 		$forum_id  = (int) ( $_POST['forum_id'] ?? 0 );
 		$is_pinned = (int) ( $_POST['pinned'] ?? 0 );
 
-		if ( ! PF_Roles_V2::user_can_moderate_forum( get_current_user_id(), $forum_id ) ) {
-			wp_send_json_error( [ 'message' => 'Không có quyền.' ] );
+		if ( ! self::check_mod_permission( $forum_id ) ) {
+			wp_send_json_error( [ 'message' => 'Bạn không có quyền quản lý forum này.' ] );
 		}
 
 		global $wpdb;
@@ -194,7 +188,7 @@ class PF_Frontend_Mod_V2 {
 			WPF()->topic->reset();
 		}
 
-		self::log_mod_action( 'pin_topic', $topic_id, $forum_id );
+		self::log_mod( 'pin_topic', 'topic', $topic_id, "topic #{$topic_id}", '', $forum_id );
 
 		wp_send_json_success( [
 			'message' => $is_pinned ? 'Đã bỏ ghim!' : 'Đã ghim lên đầu!',
@@ -209,8 +203,8 @@ class PF_Frontend_Mod_V2 {
 		$forum_id  = (int) ( $_POST['forum_id'] ?? 0 );
 		$is_locked = (int) ( $_POST['locked'] ?? 0 );
 
-		if ( ! PF_Roles_V2::user_can_moderate_forum( get_current_user_id(), $forum_id ) ) {
-			wp_send_json_error( [ 'message' => 'Không có quyền.' ] );
+		if ( ! self::check_mod_permission( $forum_id ) ) {
+			wp_send_json_error( [ 'message' => 'Bạn không có quyền quản lý forum này.' ] );
 		}
 
 		global $wpdb;
@@ -226,7 +220,7 @@ class PF_Frontend_Mod_V2 {
 			WPF()->topic->reset();
 		}
 
-		self::log_mod_action( 'lock_topic', $topic_id, $forum_id );
+		self::log_mod( 'lock_topic', 'topic', $topic_id, "topic #{$topic_id}", '', $forum_id );
 
 		wp_send_json_success( [
 			'message' => $is_locked ? 'Đã mở khóa chủ đề!' : 'Đã khóa chủ đề!',
@@ -240,8 +234,8 @@ class PF_Frontend_Mod_V2 {
 		$post_id  = (int) ( $_POST['id'] ?? 0 );
 		$forum_id = (int) ( $_POST['forum_id'] ?? 0 );
 
-		if ( ! PF_Roles_V2::user_can_moderate_forum( get_current_user_id(), $forum_id ) ) {
-			wp_send_json_error( [ 'message' => 'Không có quyền.' ] );
+		if ( ! self::check_mod_permission( $forum_id ) ) {
+			wp_send_json_error( [ 'message' => 'Bạn không có quyền quản lý forum này.' ] );
 		}
 
 		if ( function_exists( 'WPF' ) && method_exists( WPF()->post, 'delete' ) ) {
@@ -251,7 +245,7 @@ class PF_Frontend_Mod_V2 {
 			$wpdb->delete( self::wpforo_table( 'posts' ), [ 'postid' => $post_id ] );
 		}
 
-		self::log_mod_action( 'delete_post', $post_id, $forum_id );
+		self::log_mod( 'delete_post', 'post', $post_id, "post #{$post_id}", '', $forum_id );
 		wp_send_json_success( [ 'message' => 'Đã xóa bài viết!' ] );
 	}
 
@@ -261,8 +255,8 @@ class PF_Frontend_Mod_V2 {
 		$post_id  = (int) ( $_POST['id'] ?? 0 );
 		$forum_id = (int) ( $_POST['forum_id'] ?? 0 );
 
-		if ( ! PF_Roles_V2::user_can_moderate_forum( get_current_user_id(), $forum_id ) ) {
-			wp_send_json_error( [ 'message' => 'Không có quyền.' ] );
+		if ( ! self::check_mod_permission( $forum_id ) ) {
+			wp_send_json_error( [ 'message' => 'Bạn không có quyền quản lý forum này.' ] );
 		}
 
 		global $wpdb;
@@ -274,7 +268,7 @@ class PF_Frontend_Mod_V2 {
 			WPF()->post->reset();
 		}
 
-		self::log_mod_action( 'approve_post', $post_id, $forum_id );
+		self::log_mod( 'approve_post', 'post', $post_id, "post #{$post_id}", '', $forum_id );
 		wp_send_json_success( [ 'message' => 'Đã duyệt bài!' ] );
 	}
 
@@ -283,9 +277,10 @@ class PF_Frontend_Mod_V2 {
 
 		$target_id = (int) ( $_POST['id'] ?? 0 );
 		$forum_id  = (int) ( $_POST['forum_id'] ?? 0 );
+		$reason    = sanitize_text_field( wp_unslash( $_POST['reason'] ?? 'Vi phạm nội quy forum' ) );
 
-		if ( ! PF_Roles_V2::user_can_moderate_forum( get_current_user_id(), $forum_id ) ) {
-			wp_send_json_error( [ 'message' => 'Không có quyền.' ] );
+		if ( ! self::check_mod_permission( $forum_id ) ) {
+			wp_send_json_error( [ 'message' => 'Bạn không có quyền quản lý forum này.' ] );
 		}
 
 		$target = get_userdata( $target_id );
@@ -300,44 +295,43 @@ class PF_Frontend_Mod_V2 {
 			}
 		}
 
-		if ( function_exists( 'WPF' ) ) {
-			global $wpdb;
-			$wpdb->update(
-				WPF()->tables->profiles,
-				[ 'status' => 'banned' ],
-				[ 'userid' => $target_id ],
-				[ '%s' ],
-				[ '%d' ]
-			);
-			WPF()->member->reset( $target_id );
-		}
+		$is_super_admin = current_user_can( 'manage_options' );
+		$warn_level     = $is_super_admin ? PF_Constants::WARN_BANNED : PF_Constants::WARN_RESTRICTED;
 
-		update_user_meta( $target_id, 'pf_banned', '1' );
-		update_user_meta( $target_id, 'pf_banned_by', get_current_user_id() );
-		update_user_meta( $target_id, 'pf_banned_at', current_time( 'mysql' ) );
+		PF_Roles_V2::warn_user( $target_id, $reason, $warn_level );
 
-		self::log_mod_action( 'ban_user', $target_id, $forum_id );
-		wp_send_json_success( [ 'message' => "Đã ban user {$target->display_name}!" ] );
+		self::log_mod(
+			'ban_user',
+			'user',
+			$target_id,
+			$target->user_email,
+			$reason,
+			$forum_id
+		);
+
+		$msg = $is_super_admin
+			? "Đã khóa user {$target->display_name}!"
+			: "Đã hạn chế user {$target->display_name} (bài chờ duyệt). Chỉ Admin mới khóa hoàn toàn.";
+
+		wp_send_json_success( [ 'message' => $msg ] );
 	}
 
-	private static function log_mod_action( $action, $target_id, $forum_id ) {
-		global $wpdb;
-		$table = $wpdb->prefix . 'pf_mod_log';
-
-		if ( ! $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
-			self::create_log_table();
-		}
-
-		$wpdb->insert(
-			$table,
-			[
-				'mod_id'    => get_current_user_id(),
-				'action'    => sanitize_key( $action ),
-				'target_id' => (int) $target_id,
-				'forum_id'  => (int) $forum_id,
-				'ip'        => sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? '' ) ),
-			],
-			[ '%d', '%s', '%d', '%d', '%s' ]
+	private static function log_mod(
+		string $action,
+		string $target_type,
+		int $target_id,
+		string $target_info = '',
+		string $reason = '',
+		int $forum_id = 0
+	): void {
+		PF_Logger::log(
+			get_current_user_id(),
+			$action,
+			$target_type,
+			$target_id,
+			$target_info,
+			$reason,
+			$forum_id ? [ 'forum_id' => $forum_id ] : []
 		);
 	}
 }

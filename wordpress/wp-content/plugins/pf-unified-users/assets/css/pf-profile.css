@@ -51,9 +51,9 @@
 .pf-toggle input[type="radio"] { display: none; }
 .pf-toggle:has(input:checked),
 .pf-toggle.active {
-  border-color: #f97316;
-  background: #fff7ed;
-  color: #c2410c;
+  border-color: #40916c;
+  background: #f0f7ee;
+  color: #2d6a4f;
   font-weight: 600;
 }
 
@@ -73,8 +73,8 @@ select[name="pf_country"],
 select[name="pf_country"]:focus,
 #wpforo select[name="data[pf_country]"]:focus {
   outline: none;
-  border-color: #f97316;
-  box-shadow: 0 0 0 3px rgba(249,115,22,0.12);
+  border-color: #40916c;
+  box-shadow: 0 0 0 3px rgba(64,145,108,0.12);
 }
 
 input[name="pf_phone"],

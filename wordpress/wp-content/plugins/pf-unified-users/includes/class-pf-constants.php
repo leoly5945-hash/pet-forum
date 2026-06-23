@@ -64,6 +64,37 @@ class PF_Constants {
 	const META_WPFORO_ROLE      = 'pf_wpforo_role';
 	const META_MOD_FORUM_IDS    = 'pf_mod_forum_ids';
 
+	/* ── Terms acceptance tracking ── */
+	const META_VET_TERMS_ACCEPTED      = 'pf_vet_terms_accepted';       // timestamp when vet accepted
+	const META_SUBADMIN_TERMS_ACCEPTED = 'pf_subadmin_terms_accepted'; // timestamp when sub-admin accepted
+	const META_SUBADMIN_TERMS_VERSION  = 'pf_subadmin_terms_version';  // accepted version
+	const SUBADMIN_TERMS_VERSION       = '1.0';                        // current version
+
+	// 2FA
+	const META_2FA_ENABLED    = 'pf_2fa_enabled';
+	const META_2FA_OTP        = 'pf_2fa_otp';
+	const META_2FA_OTP_EXPIRY = 'pf_2fa_otp_expiry';
+	const META_2FA_LAST_IP    = 'pf_2fa_last_ip';
+
+	// Handover
+	const META_HANDOVER_DONE = 'pf_handover_done';
+	const META_HANDOVER_AT   = 'pf_handover_at';
+	const META_HANDOVER_BY   = 'pf_handover_by';
+
+	const WARN_NONE       = 0;
+	const WARN_WARNING    = 1;
+	const WARN_CAUTION    = 2;
+	const WARN_RESTRICTED = 3;
+	const WARN_BANNED     = 4;
+
+	const META_WARN_LEVEL   = 'pf_warn_level';
+	const META_WARN_COUNT   = 'pf_warn_count';
+	const META_WARN_REASON  = 'pf_warn_reason';
+	const META_WARN_BY      = 'pf_warn_by';
+	const META_WARN_AT      = 'pf_warn_at';
+	const META_WARN_HISTORY = 'pf_warn_history';
+	const META_RESTRICTED   = 'pf_restricted';
+
 	const SECTION_FORUM_SLUGS = [
 		'pf_dog_admin'    => [ 'cho-canh', 'hoi-cuong-cho', 'dogs', 'dog-lovers' ],
 		'pf_cat_admin'    => [ 'meo-canh', 'hoi-cuong-meo', 'cats', 'cat-lovers', 'test-cat-care', 'test-cat-care-discussions' ],
@@ -116,6 +147,50 @@ class PF_Constants {
 		'liên hệ ngay', 'hotline:', 'zalo:', 'click here', 'limited offer',
 	];
 
+	/* ── Upload limits ── */
+	const UPLOAD_MAX_IMAGE_SIZE = 5242880;   // 5MB.
+	const UPLOAD_MAX_DOC_SIZE   = 10485760;  // 10MB.
+	const UPLOAD_USER_QUOTA     = 104857600; // 100MB per user.
+	const UPLOAD_NEW_USER_DAYS  = 7;
+	const UPLOAD_NEW_USER_MAX   = 2097152;   // 2MB for new accounts.
+
+	const ALLOWED_IMAGE_MIMES = [
+		'image/jpeg' => [ 'jpg', 'jpeg' ],
+		'image/png'  => [ 'png' ],
+		'image/gif'  => [ 'gif' ],
+		'image/webp' => [ 'webp' ],
+	];
+
+	const ALLOWED_DOC_MIMES = [
+		'application/pdf' => [ 'pdf' ],
+	];
+
+	const BLOCKED_EXTENSIONS = [
+		'php', 'php3', 'php4', 'php5', 'phtml',
+		'exe', 'bat', 'sh', 'py', 'rb', 'pl',
+		'js', 'jsx', 'ts', 'vue',
+		'html', 'htm', 'xml',
+		'zip', 'rar', '7z', 'tar', 'gz',
+		'svg',
+	];
+
+	const IMAGE_MAX_WIDTH    = 1200;
+	const IMAGE_MAX_HEIGHT   = 1200;
+	const IMAGE_QUALITY_JPEG = 82;
+	const IMAGE_QUALITY_PNG  = 6;
+	const IMAGE_QUALITY_WEBP = 80;
+
+	const VIDEO_ALLOWED_DOMAINS = [
+		'youtube.com', 'youtu.be',
+		'tiktok.com',
+		'facebook.com', 'fb.watch',
+		'vimeo.com',
+	];
+
+	public static function get_allowed_all_mimes(): array {
+		return array_merge( self::ALLOWED_IMAGE_MIMES, self::ALLOWED_DOC_MIMES );
+	}
+
 	public static function get_country_label( $code, $lang = 'vi' ) {
 		return self::COUNTRIES[ $code ][ $lang ] ?? self::COUNTRIES[ $code ]['vi'] ?? $code;
 	}
@@ -167,6 +242,26 @@ class PF_Constants {
 		$active = get_user_meta( $user_id, self::META_ACCOUNT_ACTIVE, true );
 
 		return $active !== '0';
+	}
+
+	public static function get_warn_level( $user_id ) {
+		return (int) get_user_meta( $user_id, self::META_WARN_LEVEL, true );
+	}
+
+	public static function is_user_banned( $user_id ) {
+		if ( get_user_meta( $user_id, self::META_BANNED, true ) === '1' ) {
+			return true;
+		}
+
+		return self::get_warn_level( $user_id ) >= self::WARN_BANNED;
+	}
+
+	public static function is_user_restricted( $user_id ) {
+		if ( get_user_meta( $user_id, self::META_RESTRICTED, true ) === '1' ) {
+			return true;
+		}
+
+		return self::get_warn_level( $user_id ) >= self::WARN_RESTRICTED;
 	}
 
 	public static function get_vet_group_id() {

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: PF News Aggregator
  * Description: RSS fetch + AI translate + auto-post pet news
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: PetForum
  *
  * @package PF_News_Aggregator
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PF_NEWS_VERSION', '1.0.0' );
+define( 'PF_NEWS_VERSION', '1.1.0' );
 define( 'PF_NEWS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PF_NEWS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
@@ -67,6 +67,7 @@ require_once PF_NEWS_PLUGIN_DIR . 'includes/class-post-creator.php';
 require_once PF_NEWS_PLUGIN_DIR . 'includes/class-rss-fetcher.php';
 require_once PF_NEWS_PLUGIN_DIR . 'includes/class-community-sidebar.php';
 require_once PF_NEWS_PLUGIN_DIR . 'includes/class-featured-posts.php';
+require_once PF_NEWS_PLUGIN_DIR . 'includes/class-homepage-cache.php';
 require_once PF_NEWS_PLUGIN_DIR . 'includes/class-pf-news-aggregator.php';
 
 register_activation_hook(

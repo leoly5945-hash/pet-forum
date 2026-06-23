@@ -37,8 +37,10 @@ class PF_News_Aggregator {
 		add_action( 'init', array( $this, 'maybe_seed_terms' ) );
 
 		PF_Featured_Posts::init();
+		PF_Homepage_Cache::init();
 
 		add_filter( 'cron_schedules', array( $this, 'add_cron_schedules' ) );
+		add_action( 'init', array( $this, 'ensure_cron_scheduled' ), 20 );
 		add_action( 'pf_fetch_rss_event', array( $this->fetcher, 'run' ) );
 
 		add_action( 'wp_ajax_pf_load_more_news', array( $this, 'ajax_load_more_news' ) );
@@ -114,12 +116,32 @@ class PF_News_Aggregator {
 	}
 
 	public function add_cron_schedules( $schedules ) {
-		$schedules['every_6_hours'] = array(
-			'interval' => 21600,
-			'display'  => 'Every 6 Hours',
+		$schedules['every_30_minutes'] = array(
+			'interval' => 30 * MINUTE_IN_SECONDS,
+			'display'  => 'Every 30 Minutes',
+		);
+		$schedules['every_1_hour']     = array(
+			'interval' => HOUR_IN_SECONDS,
+			'display'  => 'Every 1 Hour',
 		);
 
 		return $schedules;
+	}
+
+	public function ensure_cron_scheduled() {
+		$desired = 'every_30_minutes';
+
+		if ( ! wp_next_scheduled( 'pf_fetch_rss_event' ) ) {
+			wp_schedule_event( time() + 60, $desired, 'pf_fetch_rss_event' );
+			update_option( 'pf_news_cron_interval', $desired );
+			return;
+		}
+
+		if ( get_option( 'pf_news_cron_interval' ) !== $desired ) {
+			wp_clear_scheduled_hook( 'pf_fetch_rss_event' );
+			wp_schedule_event( time() + 60, $desired, 'pf_fetch_rss_event' );
+			update_option( 'pf_news_cron_interval', $desired );
+		}
 	}
 
 	public function activate() {
@@ -128,9 +150,9 @@ class PF_News_Aggregator {
 		$this->maybe_seed_terms();
 		flush_rewrite_rules();
 
-		if ( ! wp_next_scheduled( 'pf_fetch_rss_event' ) ) {
-			wp_schedule_event( time() + 300, 'every_6_hours', 'pf_fetch_rss_event' );
-		}
+		wp_clear_scheduled_hook( 'pf_fetch_rss_event' );
+		wp_schedule_event( time() + 60, 'every_30_minutes', 'pf_fetch_rss_event' );
+		update_option( 'pf_news_cron_interval', 'every_30_minutes' );
 	}
 
 	public function deactivate() {

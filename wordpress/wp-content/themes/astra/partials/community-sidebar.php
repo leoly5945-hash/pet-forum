@@ -15,6 +15,11 @@ $stats     = $sidebar ? $sidebar->get_stats() : array( 'members' => 0, 'topics' 
 $news_count = (int) wp_count_posts( 'pet_news' )->publish;
 $community_url = home_url( '/community/' );
 ?>
+<?php if ( class_exists( 'PF_Ads' ) && PF_Ads::ads_enabled() ) : ?>
+<div class="pf-sidebar-box pf-sidebar-ads-box">
+	<?php echo PF_Ads::render_sidebar_block(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+</div>
+<?php endif; ?>
 <div class="pf-sidebar-box">
 	<h3 class="pf-sidebar-title">🔥 Thảo Luận Mới Nhất</h3>
 	<?php if ( empty( $discussions ) ) : ?>
@@ -48,5 +53,13 @@ $community_url = home_url( '/community/' );
 	<div class="pf-stat-row"><span>👥 Thành viên</span><strong><?php echo esc_html( number_format_i18n( $stats['members'] ) ); ?></strong></div>
 	<div class="pf-stat-row"><span>💬 Chủ đề</span><strong><?php echo esc_html( number_format_i18n( $stats['topics'] ) ); ?></strong></div>
 	<div class="pf-stat-row"><span>📰 Tin tức</span><strong id="pfNewsCount"><?php echo esc_html( number_format_i18n( $news_count ) ); ?></strong></div>
+	<?php if ( is_user_logged_in() ) : ?>
 	<a href="<?php echo esc_url( $community_url ); ?>" class="pf-btn-join">Tham gia thảo luận →</a>
+	<?php else : ?>
+	<div class="pf-sidebar-auth">
+		<a href="<?php echo esc_url( class_exists( 'PF_Register_V2' ) ? PF_Register_V2::register_url( 'member' ) : home_url( '/register/?type=member' ) ); ?>" class="pf-btn-join">🐾 Đăng ký thành viên</a>
+		<a href="<?php echo esc_url( class_exists( 'PF_Register_V2' ) ? PF_Register_V2::register_url( 'vet' ) : home_url( '/register/?type=vet' ) ); ?>" class="pf-btn-join pf-btn-join--vet">🩺 Đăng ký bác sĩ</a>
+		<a href="<?php echo esc_url( wp_login_url( home_url( '/' ) ) ); ?>" class="pf-sidebar-login">Đã có tài khoản? Đăng nhập →</a>
+	</div>
+	<?php endif; ?>
 </div>

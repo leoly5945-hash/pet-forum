@@ -40,9 +40,17 @@ services:
       WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
       WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX}
       WORDPRESS_DEBUG: ${WORDPRESS_DEBUG}
+      PHP_UPLOAD_MAX_FILESIZE: 10M
+      PHP_POST_MAX_SIZE: 12M
+      PHP_MEMORY_LIMIT: 256M
+      PF_DIFY_API_URL: ${PF_DIFY_API_URL:-https://api.dify.ai/v1}
+      PF_DIFY_APP_TOKEN: ${PF_DIFY_APP_TOKEN:-}
+      PF_N8N_WEBHOOK: ${PF_N8N_WEBHOOK:-}
+      PF_AI_MODE: ${PF_AI_MODE:-dify}
     volumes:
       - ./wordpress:/var/www/html
       - ./wordpress-plugin/pet-forum-api:/var/www/html/wp-content/plugins/pet-forum-api
+      - ./docker/php/pf-upload.ini:/usr/local/etc/php/conf.d/pf-upload.ini:ro
     networks:
       - pet-forum-network
 
@@ -66,11 +74,44 @@ services:
       - ./wordpress:/var/www/html
       - ./wordpress-plugin/pet-forum-api:/var/www/html/wp-content/plugins/pet-forum-api
       - ./scripts:/scripts:ro
+      - ./docker/php/pf-upload.ini:/usr/local/etc/php/conf.d/pf-upload.ini:ro
     networks:
       - pet-forum-network
     user: "33:33"
     entrypoint: tail
     command: -f /dev/null
+
+  wp-cron:
+    image: wordpress:cli
+    container_name: pet-forum-wp-cron
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      wordpress:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WP_CLI_CACHE_DIR: /tmp/wp-cli-cache
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./wordpress-plugin/pet-forum-api:/var/www/html/wp-content/plugins/pet-forum-api
+    networks:
+      - pet-forum-network
+    user: "33:33"
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        while true; do
+          wp cron event run --due-now --path=/var/www/html --allow-root 2>/dev/null || true
+          sleep 60
+        done
 
   phpmyadmin:
     image: phpmyadmin:latest

@@ -11,38 +11,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$featured_news = new WP_Query(
-	array(
-		'post_type'      => 'pet_news',
-		'posts_per_page' => 3,
-		'meta_query'     => array(
-			array(
-				'key'   => '_pf_featured',
-				'value' => '1',
-			),
-		),
-		'orderby'        => 'date',
-		'order'          => 'DESC',
-		'post_status'    => 'publish',
-	)
-);
-
-if ( ! $featured_news->have_posts() ) {
-	wp_reset_postdata();
-	$featured_news = new WP_Query(
-		array(
-			'post_type'      => 'pet_news',
-			'posts_per_page' => 3,
-			'orderby'        => 'date',
-			'order'          => 'DESC',
-			'post_status'    => 'publish',
-		)
-	);
-}
+$featured_news = PF_Homepage_Cache::featured_query();
 
 $featured_ids = wp_list_pluck( $featured_news->posts, 'ID' );
 
-$latest_news = new WP_Query(
+$latest_news = PF_Homepage_Cache::query(
+	'latest',
 	array(
 		'post_type'      => 'pet_news',
 		'posts_per_page' => 12,
@@ -53,7 +27,8 @@ $latest_news = new WP_Query(
 	)
 );
 
-$trending_news = new WP_Query(
+$trending_news = PF_Homepage_Cache::query(
+	'trending',
 	array(
 		'post_type'      => 'pet_news',
 		'posts_per_page' => 8,
