@@ -5,9 +5,12 @@ class PF_TwoFactor {
 
 	const OTP_LENGTH = 6;
 	const OTP_EXPIRY = 600;
+	const OTP_MAX_ATTEMPTS = 3;
+	const OTP_LOCKOUT_SECONDS = 900;
 
 	public static function init(): void {
 		add_filter( 'authenticate', [ __CLASS__, 'intercept_login' ], 40, 3 );
+		add_filter( 'login_errors', [ __CLASS__, 'style_otp_login_errors' ] );
 		add_action( 'login_form', [ __CLASS__, 'maybe_show_otp_field' ] );
 		add_action( 'wp_ajax_nopriv_pf_resend_otp', [ __CLASS__, 'ajax_resend_otp' ] );
 		add_action( 'admin_notices', [ __CLASS__, 'nudge_2fa_setup' ] );
@@ -35,7 +38,30 @@ class PF_TwoFactor {
 		}
 
 		if ( ! empty( $_POST['pf_otp_code'] ) ) {
-			return self::verify_otp_sync( $user );
+			$result = self::verify_otp( $user->ID, sanitize_text_field( wp_unslash( $_POST['pf_otp_code'] ) ) );
+			if ( is_wp_error( $result ) ) {
+				return $result;
+			}
+
+			update_user_meta( $user->ID, PF_Constants::META_2FA_ENABLED, '1' );
+			update_user_meta( $user->ID, PF_Constants::META_2FA_LAST_IP, self::get_ip() );
+
+			PF_Logger::log(
+				$user->ID,
+				'2fa_success',
+				'user',
+				$user->ID,
+				$user->user_email,
+				'2FA login successful',
+				[ 'ip' => self::get_ip() ]
+			);
+
+			return $user;
+		}
+
+		$lock_error = self::check_lockout( $user->ID );
+		if ( is_wp_error( $lock_error ) ) {
+			return $lock_error;
 		}
 
 		self::send_otp( $user->ID );
@@ -101,52 +127,141 @@ class PF_TwoFactor {
 		<?php
 	}
 
-	private static function verify_otp_sync( WP_User $user ) {
-		$code   = sanitize_text_field( wp_unslash( $_POST['pf_otp_code'] ?? '' ) );
-		$stored = get_user_meta( $user->ID, PF_Constants::META_2FA_OTP, true );
-		$expiry = (int) get_user_meta( $user->ID, PF_Constants::META_2FA_OTP_EXPIRY, true );
+	private static function clear_pending_session( int $user_id ): void {
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return;
+		}
+
+		$session_key = 'pf_2fa_pending_' . md5( $user->user_login . self::get_ip() );
+		delete_transient( $session_key );
+	}
+
+	public static function style_otp_login_errors( string $errors ): string {
+		global $wp_error;
+		if ( ! ( $wp_error instanceof WP_Error ) ) {
+			return $errors;
+		}
+
+		$codes = [ 'pf_2fa_wrong', 'pf_2fa_locked', 'pf_2fa_expired' ];
+		foreach ( $codes as $code ) {
+			$message = $wp_error->get_error_message( $code );
+			if ( $message ) {
+				return '<div class="pf-otp-error" style="color:#c0392b;margin:10px 0;padding:10px;background:#fdf0ef;border-radius:4px;">'
+					. wp_kses_post( $message )
+					. '</div>';
+			}
+		}
+
+		return $errors;
+	}
+
+	private static function get_lang( int $user_id ): string {
+		$lang = get_user_meta( $user_id, PF_Constants::META_PREFERRED_LANG, true );
+
+		return in_array( $lang, [ 'vi', 'en' ], true ) ? $lang : PF_I18n::current_lang();
+	}
+
+	private static function check_lockout( int $user_id ) {
+		$locked_until = (int) get_user_meta( $user_id, PF_Constants::META_2FA_LOCKED_UNTIL, true );
+
+		if ( $locked_until > time() ) {
+			$minutes = (int) ceil( ( $locked_until - time() ) / 60 );
+			$lang    = self::get_lang( $user_id );
+
+			return new WP_Error(
+				'pf_2fa_locked',
+				sprintf( PF_I18n::get( '2fa_locked', $lang ), $minutes )
+			);
+		}
+
+		if ( $locked_until > 0 && $locked_until <= time() ) {
+			delete_user_meta( $user_id, PF_Constants::META_2FA_LOCKED_UNTIL );
+		}
+
+		return true;
+	}
+
+	/**
+	 * @return true|WP_Error
+	 */
+	private static function verify_otp( int $user_id, string $submitted_otp ) {
+		$lang = self::get_lang( $user_id );
+
+		$lock_error = self::check_lockout( $user_id );
+		if ( is_wp_error( $lock_error ) ) {
+			return $lock_error;
+		}
+
+		$stored   = get_user_meta( $user_id, PF_Constants::META_2FA_OTP, true );
+		$expiry   = (int) get_user_meta( $user_id, PF_Constants::META_2FA_OTP_EXPIRY, true );
 
 		if ( ! $stored || ! $expiry ) {
-			return new WP_Error( 'pf_2fa_error', 'Mã xác thực không hợp lệ. Hãy đăng nhập lại để nhận mã mới.' );
+			delete_user_meta( $user_id, PF_Constants::META_2FA_FAIL_COUNT );
+
+			return new WP_Error( 'pf_2fa_expired', PF_I18n::get( '2fa_expired', $lang ) );
 		}
 
 		if ( time() > $expiry ) {
-			delete_user_meta( $user->ID, PF_Constants::META_2FA_OTP );
-			delete_user_meta( $user->ID, PF_Constants::META_2FA_OTP_EXPIRY );
+			delete_user_meta( $user_id, PF_Constants::META_2FA_OTP );
+			delete_user_meta( $user_id, PF_Constants::META_2FA_OTP_EXPIRY );
+			delete_user_meta( $user_id, PF_Constants::META_2FA_FAIL_COUNT );
 
-			return new WP_Error( 'pf_2fa_expired', 'Mã xác thực đã hết hạn. Hãy đăng nhập lại.' );
+			return new WP_Error( 'pf_2fa_expired', PF_I18n::get( '2fa_expired', $lang ) );
 		}
 
-		if ( ! hash_equals( (string) $stored, $code ) ) {
+		if ( ! hash_equals( (string) $stored, $submitted_otp ) ) {
+			$fail_count = (int) get_user_meta( $user_id, PF_Constants::META_2FA_FAIL_COUNT, true ) + 1;
+			update_user_meta( $user_id, PF_Constants::META_2FA_FAIL_COUNT, $fail_count );
+
+			$user_obj   = get_userdata( $user_id );
+			$user_email = ( $user_obj instanceof WP_User ) ? $user_obj->user_email : '';
+
 			PF_Logger::log(
-				$user->ID,
+				$user_id,
 				'2fa_failed',
 				'user',
-				$user->ID,
-				$user->user_email,
+				$user_id,
+				$user_email,
 				'Wrong OTP entered',
-				[ 'ip' => self::get_ip() ]
+				[ 'ip' => self::get_ip(), 'attempt' => $fail_count ]
 			);
 
-			return new WP_Error( 'pf_2fa_wrong', 'Mã xác thực không đúng. Vui lòng thử lại.' );
+			if ( $fail_count >= self::OTP_MAX_ATTEMPTS ) {
+				$lock_until = time() + self::OTP_LOCKOUT_SECONDS;
+				update_user_meta( $user_id, PF_Constants::META_2FA_LOCKED_UNTIL, $lock_until );
+				delete_user_meta( $user_id, PF_Constants::META_2FA_OTP );
+				delete_user_meta( $user_id, PF_Constants::META_2FA_OTP_EXPIRY );
+				delete_user_meta( $user_id, PF_Constants::META_2FA_FAIL_COUNT );
+				self::clear_pending_session( $user_id );
+
+				PF_Logger::log(
+					$user_id,
+					'2fa_lockout',
+					'user',
+					$user_id,
+					$user_email,
+					'3 lần nhập OTP sai — khóa 15 phút',
+					[ 'ip' => self::get_ip(), 'locked_until' => $lock_until ]
+				);
+
+				return new WP_Error( 'pf_2fa_locked', PF_I18n::get( '2fa_locked_now', $lang ) );
+			}
+
+			$remaining = self::OTP_MAX_ATTEMPTS - $fail_count;
+
+			return new WP_Error(
+				'pf_2fa_wrong',
+				sprintf( PF_I18n::get( '2fa_wrong', $lang ), $remaining )
+			);
 		}
 
-		delete_user_meta( $user->ID, PF_Constants::META_2FA_OTP );
-		delete_user_meta( $user->ID, PF_Constants::META_2FA_OTP_EXPIRY );
-		update_user_meta( $user->ID, PF_Constants::META_2FA_ENABLED, '1' );
-		update_user_meta( $user->ID, PF_Constants::META_2FA_LAST_IP, self::get_ip() );
+		delete_user_meta( $user_id, PF_Constants::META_2FA_OTP );
+		delete_user_meta( $user_id, PF_Constants::META_2FA_OTP_EXPIRY );
+		delete_user_meta( $user_id, PF_Constants::META_2FA_FAIL_COUNT );
+		delete_user_meta( $user_id, PF_Constants::META_2FA_LOCKED_UNTIL );
 
-		PF_Logger::log(
-			$user->ID,
-			'2fa_success',
-			'user',
-			$user->ID,
-			$user->user_email,
-			'2FA login successful',
-			[ 'ip' => self::get_ip() ]
-		);
-
-		return $user;
+		return true;
 	}
 
 	public static function send_otp( int $user_id ): void {
@@ -205,6 +320,11 @@ class PF_TwoFactor {
 
 		if ( ! self::requires_2fa( $user->ID ) ) {
 			wp_send_json_error( [ 'message' => 'Tài khoản này không yêu cầu 2FA.' ] );
+		}
+
+		$lock_error = self::check_lockout( $user->ID );
+		if ( is_wp_error( $lock_error ) ) {
+			wp_send_json_error( [ 'message' => $lock_error->get_error_message() ] );
 		}
 
 		$expiry = (int) get_user_meta( $user->ID, PF_Constants::META_2FA_OTP_EXPIRY, true );

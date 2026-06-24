@@ -190,6 +190,10 @@ class PF_I18n {
 			'nav_world'            => [ 'vi' => '🌐 Đa ngôn ngữ', 'en' => '🌐 World' ],
 			'nav_terms'            => [ 'vi' => '📄 Điều khoản', 'en' => '📄 Terms' ],
 			'nav_feedback'         => [ 'vi' => '💬 Góp ý', 'en' => '💬 Feedback' ],
+			'2fa_wrong'            => [ 'vi' => 'Mã OTP không đúng. Còn %d lần thử.', 'en' => 'Incorrect OTP. %d attempts remaining.' ],
+			'2fa_locked'           => [ 'vi' => 'Tài khoản tạm khóa do nhập sai OTP nhiều lần. Thử lại sau %d phút.', 'en' => 'Account temporarily locked after too many wrong OTP attempts. Try again in %d minutes.' ],
+			'2fa_locked_now'       => [ 'vi' => 'Nhập sai OTP 3 lần — tài khoản bị khóa 15 phút. Một mã OTP mới sẽ được gửi khi hết thời gian khóa.', 'en' => 'Too many wrong OTP attempts — account locked for 15 minutes. A new OTP will be available after the lockout.' ],
+			'2fa_expired'          => [ 'vi' => 'Mã OTP đã hết hạn. Vui lòng đăng nhập lại để nhận mã mới.', 'en' => 'OTP has expired. Please log in again to receive a new code.' ],
 		];
 	}
 

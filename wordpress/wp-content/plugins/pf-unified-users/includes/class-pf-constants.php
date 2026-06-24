@@ -74,6 +74,8 @@ class PF_Constants {
 	const META_2FA_ENABLED    = 'pf_2fa_enabled';
 	const META_2FA_OTP        = 'pf_2fa_otp';
 	const META_2FA_OTP_EXPIRY = 'pf_2fa_otp_expiry';
+	const META_2FA_FAIL_COUNT = 'pf_2fa_fail_count';
+	const META_2FA_LOCKED_UNTIL = 'pf_2fa_locked_until';
 	const META_2FA_LAST_IP    = 'pf_2fa_last_ip';
 
 	// Handover
