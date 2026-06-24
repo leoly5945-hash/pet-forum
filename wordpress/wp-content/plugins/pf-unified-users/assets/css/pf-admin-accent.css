@@ -1,0 +1,79 @@
+/**
+ * Pet Forum — WP Admin sidebar accent (forest green).
+ */
+:root {
+	--pf-admin-bg: #1b4332;
+	--pf-admin-bg-hover: #2d6a4f;
+	--pf-admin-bg-active: #40916c;
+	--pf-admin-text: #d8f3dc;
+	--pf-admin-text-muted: #95d5b2;
+}
+
+#adminmenuback,
+#adminmenuwrap,
+#adminmenu {
+	background-color: var(--pf-admin-bg);
+}
+
+#adminmenu a {
+	color: var(--pf-admin-text);
+}
+
+#adminmenu div.wp-menu-image:before {
+	color: var(--pf-admin-text-muted);
+}
+
+#adminmenu li.menu-top:hover,
+#adminmenu li.opensub > a.menu-top,
+#adminmenu li > a.menu-top:focus {
+	background-color: var(--pf-admin-bg-hover);
+	color: #fff;
+}
+
+#adminmenu li.current a.menu-top,
+#adminmenu li.wp-has-current-submenu a.wp-has-current-submenu,
+#adminmenu .wp-has-current-submenu .wp-submenu .wp-submenu-head {
+	background-color: var(--pf-admin-bg-active);
+	color: #fff;
+}
+
+#adminmenu .wp-submenu {
+	background-color: var(--pf-admin-bg-hover);
+}
+
+#adminmenu .wp-submenu a {
+	color: var(--pf-admin-text);
+}
+
+#adminmenu .wp-submenu a:hover,
+#adminmenu .wp-submenu a:focus {
+	color: #fff;
+}
+
+#wpadminbar {
+	background: linear-gradient(90deg, var(--pf-admin-bg), var(--pf-admin-bg-hover));
+}
+
+#wpadminbar .ab-item,
+#wpadminbar a.ab-item,
+#wpadminbar > #wp-toolbar span.ab-label,
+#wpadminbar > #wp-toolbar span.noticon {
+	color: var(--pf-admin-text);
+}
+
+#wpadminbar .ab-top-menu > li:hover > .ab-item,
+#wpadminbar .ab-top-menu > li.hover > .ab-item,
+#wpadminbar .ab-top-menu > li > .ab-item:focus {
+	background-color: var(--pf-admin-bg-active);
+	color: #fff;
+}
+
+/* PetForum admin menu highlight */
+#adminmenu .toplevel_page_pf-admin .wp-menu-image:before {
+	color: #74c69d;
+}
+
+#adminmenu .toplevel_page_pf-admin.current .wp-menu-image:before,
+#adminmenu .toplevel_page_pf-admin.wp-has-current-submenu .wp-menu-image:before {
+	color: #fff;
+}

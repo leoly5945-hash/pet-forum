@@ -96,10 +96,24 @@ class PF_Constants {
 	const META_RESTRICTED   = 'pf_restricted';
 
 	const SECTION_FORUM_SLUGS = [
-		'pf_dog_admin'    => [ 'cho-canh', 'hoi-cuong-cho', 'dogs', 'dog-lovers' ],
-		'pf_cat_admin'    => [ 'meo-canh', 'hoi-cuong-meo', 'cats', 'cat-lovers', 'test-cat-care', 'test-cat-care-discussions' ],
-		'pf_bird_admin'   => [ 'chim-canh', 'hoi-cuong-chim', 'birds', 'bird-lovers' ],
+		'pf_dog_admin'    => [ 'cho-canh', 'hoi-cuong-cho', 'dogs', 'dog-lovers-community' ],
+		'pf_cat_admin'    => [ 'meo-canh', 'hoi-cuong-meo', 'cats', 'cat-lovers-community', 'test-cat-care', 'test-cat-care-discussions' ],
+		'pf_bird_admin'   => [ 'chim-canh', 'hoi-cuong-chim', 'pet-birds', 'bird-lovers-community' ],
 		'pf_market_admin' => [ 'goc-mua-ban', 'marketplace', 'mua-ban', 'buy-sell' ],
+	];
+
+	/** Vet consultation section — wpForo multiboard URLs use board slug prefix */
+	const VET_FORUM_SLUG_VI = 'bac-si-tu-van';
+	const VET_FORUM_SLUG_EN = 'vet-consultation';
+	const VET_BOARD_SLUG_VI = 'muc-tieng-viet';
+	const VET_BOARD_SLUG_EN = 'english-section';
+	const VET_BOARD_ID_VI     = 3;
+	const VET_BOARD_ID_EN     = 2;
+
+	const VET_FORUM_SLUGS = [
+		'bac-si-tu-van',
+		'bac-si-thu-y',      // legacy slug (setup-forum-v3.php)
+		'vet-consultation',  // English board
 	];
 
 	const COUNTRIES = [
@@ -271,5 +285,27 @@ class PF_Constants {
 		}
 
 		return (int) apply_filters( 'pf_verified_vet_group_id', self::WPFORO_GROUP_VERIFIED_VET );
+	}
+
+	public static function get_vet_forum_url( $lang = '' ) {
+		if ( ! $lang ) {
+			$lang = function_exists( 'PF_I18n' ) ? PF_I18n::current_lang() : 'vi';
+		}
+
+		$is_en     = ( 'en' === $lang );
+		$board_id  = $is_en ? self::VET_BOARD_ID_EN : self::VET_BOARD_ID_VI;
+		$board_slug = $is_en ? self::VET_BOARD_SLUG_EN : self::VET_BOARD_SLUG_VI;
+		$forum_slug = $is_en ? self::VET_FORUM_SLUG_EN : self::VET_FORUM_SLUG_VI;
+
+		if ( function_exists( 'WPF' ) && WPF()->forum ) {
+			WPF()->change_board( $board_id );
+			WPF()->forum->reset();
+			$forum = WPF()->forum->get_forum( $forum_slug );
+			if ( ! empty( $forum['forumid'] ) ) {
+				return trailingslashit( WPF()->forum->get_forum_url( $forum ) );
+			}
+		}
+
+		return home_url( '/' . $board_slug . '/' . $forum_slug . '/' );
 	}
 }

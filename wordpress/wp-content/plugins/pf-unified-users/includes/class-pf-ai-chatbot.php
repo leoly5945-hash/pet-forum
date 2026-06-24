@@ -3,7 +3,7 @@ defined( 'ABSPATH' ) || exit;
 
 class PF_AI_Chatbot {
 
-	const MAX_MESSAGES_PER_HOUR = 30;
+	const MAX_MESSAGES_PER_HOUR = 20;
 	const MAX_MESSAGES_PER_DAY  = 100;
 
 	public static function init(): void {
@@ -98,7 +98,7 @@ class PF_AI_Chatbot {
 			'preferred_lang'  => $lang,
 			'is_vet'          => $is_vet,
 			'forum_url'       => home_url( '/community/' ),
-			'vet_section_url' => home_url( '/forum/bac-si-tu-van' ),
+			'vet_section_url' => PF_Constants::get_vet_forum_url(),
 		];
 	}
 

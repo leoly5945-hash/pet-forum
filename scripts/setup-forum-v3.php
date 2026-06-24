@@ -272,7 +272,7 @@ $categories = array(
 	array(
 		'icon'        => '🩺',
 		'slug_en'     => 'vet-consultation',
-		'slug_vi'     => 'bac-si-thu-y',
+		'slug_vi'     => 'bac-si-tu-van',
 		'name_en'     => 'Vet Consultation',
 		'name_vi'     => 'Bác Sĩ Thú Y Tư Vấn',
 		'desc_en'     => 'Ask veterinary questions and share preventive care knowledge.',

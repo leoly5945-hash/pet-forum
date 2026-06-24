@@ -16,6 +16,7 @@ define( 'PFU_SLUG', 'pf-unified-users' );
 $includes = [
 	'includes/class-pf-constants.php',
 	'includes/class-pf-i18n.php',
+	'includes/class-pf-theme.php',
 	'includes/class-pf-logger.php',
 	'includes/class-pf-2fa.php',
 	'includes/class-pf-user-meta.php',
@@ -73,6 +74,7 @@ register_deactivation_hook( __FILE__, function () {
 
 add_action( 'plugins_loaded', function () {
 	PF_I18n::init();
+	PF_Theme::init();
 	PF_User_Meta_V2::init();
 	PF_AntiSpam_V2::init();
 	PF_Register_V2::init();
