@@ -31,6 +31,7 @@ $includes = [
 	'includes/class-pf-image-processor.php',
 	'includes/class-pf-video-embed.php',
 	'includes/class-pf-ai-chatbot.php',
+	'includes/class-pf-security.php',
 	'includes/class-pf-admin.php',
 ];
 foreach ( $includes as $file ) {
@@ -58,7 +59,7 @@ register_activation_hook( __FILE__, function () {
 		PF_Engagement::backfill_last_login();
 	}
 
-	if ( class_exists( 'PF_AI_Chatbot' ) ) {
+		if ( class_exists( 'PF_AI_Chatbot' ) ) {
 		PF_AI_Chatbot::create_log_table();
 	}
 } );
@@ -87,6 +88,7 @@ add_action( 'plugins_loaded', function () {
 	PF_Image_Processor::init();
 	PF_Video_Embed::init();
 	PF_AI_Chatbot::init();
+	PF_Security::init();
 	PF_Admin_V2::init();
 }, 10 );
 

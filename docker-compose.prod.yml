@@ -1,0 +1,103 @@
+# Production stack — copy to /opt/pet-forum on VPS
+# Usage: cp .env.prod.example .env && docker compose -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: pet-forum-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - pet-forum-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  wordpress:
+    image: wordpress:latest
+    container_name: pet-forum-wordpress
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX:-pet70_}
+      WORDPRESS_DEBUG: "0"
+      PF_N8N_WEBHOOK: ${PF_N8N_WEBHOOK:-}
+      PF_AI_MODE: ${PF_AI_MODE:-n8n}
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./deploy/wp-config-extra.php:/var/www/html/wp-config-extra.php:ro
+      - ./docker/php/pf-upload.ini:/usr/local/etc/php/conf.d/pf-upload.ini:ro
+    networks:
+      - pet-forum-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: pet-forum-nginx
+    restart: unless-stopped
+    depends_on:
+      - wordpress
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/petforum.conf:/etc/nginx/conf.d/petforum.conf:ro
+      - ./deploy/nginx/proxy_params:/etc/nginx/proxy_params:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/nginx/ssl:ro
+    networks:
+      - pet-forum-network
+
+  wp-cron:
+    image: wordpress:cli
+    container_name: pet-forum-wp-cron
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      wordpress:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+    volumes:
+      - ./wordpress:/var/www/html
+    networks:
+      - pet-forum-network
+    user: "33:33"
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        while true; do
+          wp cron event run --due-now --path=/var/www/html --allow-root 2>/dev/null || true
+          sleep 60
+        done
+
+volumes:
+  db_data:
+
+networks:
+  pet-forum-network:
+    driver: bridge
