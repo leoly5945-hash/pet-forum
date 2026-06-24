@@ -6,29 +6,36 @@ set -euo pipefail
 DOMAIN="${DOMAIN:-petforum.vn}"
 BASE="https://${DOMAIN}"
 
-check_code() {
-  local path="$1"
-  local label="$2"
-  local code
-  code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}${path}" || echo "000")
-  echo "${code} → ${label}"
-}
+pass() { echo "✅ $1"; }
+fail() { echo "❌ $1"; }
 
-echo "=== Block sensitive files ==="
-check_code "/.env" "env"
-check_code "/wp-config.php" "wp-config"
-check_code "/xmlrpc.php" "xmlrpc"
-check_code "/readme.html" "readme"
+echo "=== Security Checklist — ${DOMAIN} ==="
 
-echo ""
-echo "=== Login URL ==="
-check_code "/wp-login.php" "wp-login (expect 404)"
-check_code "/dang-nhap-pet" "custom login (expect 200/302)"
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/" || echo "000")
+[ "$STATUS" = "200" ] && pass "HTTPS home ${STATUS}" || fail "HTTPS home ${STATUS}"
 
-echo ""
-echo "=== Security headers ==="
-curl -sI "${BASE}/" | grep -iE 'strict-transport|x-frame|x-content-type|referrer-policy' || true
+REDIRECT=$(curl -s -o /dev/null -w '%{redirect_url}' "http://${DOMAIN}/" || true)
+echo "HTTP→HTTPS redirect: ${REDIRECT:-none}"
+
+LOGIN=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/wp-login.php" || echo "000")
+[ "$LOGIN" = "403" ] || [ "$LOGIN" = "404" ] && pass "wp-login.php blocked (${LOGIN})" || fail "wp-login.php should be 403/404, got ${LOGIN}"
+
+CUSTOM=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/dang-nhap-pet" || echo "000")
+[ "$CUSTOM" = "200" ] || [ "$CUSTOM" = "302" ] && pass "custom login /dang-nhap-pet (${CUSTOM})" || fail "custom login (${CUSTOM})"
+
+XMLRPC=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/xmlrpc.php" || echo "000")
+[ "$XMLRPC" = "403" ] || [ "$XMLRPC" = "404" ] && pass "xmlrpc.php blocked (${XMLRPC})" || fail "xmlrpc.php (${XMLRPC})"
+
+ENV=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/.env" || echo "000")
+[ "$ENV" = "403" ] || [ "$ENV" = "404" ] && pass ".env not public (${ENV})" || fail ".env exposed (${ENV})"
+
+HSTS=$(curl -sI "${BASE}/" | grep -i 'strict-transport' || true)
+[ -n "$HSTS" ] && pass "HSTS present" || fail "HSTS missing"
+
+XFO=$(curl -sI "${BASE}/" | grep -i 'x-frame-options' || true)
+[ -n "$XFO" ] && pass "X-Frame-Options present" || fail "X-Frame-Options missing"
 
 echo ""
 echo "Manual: https://www.ssllabs.com/ssltest/analyze.html?d=${DOMAIN}"
 echo "Manual: https://securityheaders.com/?q=${BASE}"
+echo "=== Done ==="

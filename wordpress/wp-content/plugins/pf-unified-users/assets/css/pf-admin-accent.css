@@ -1,79 +1,118 @@
 /**
- * Pet Forum — WP Admin sidebar accent (forest green).
+ * pf-admin-accent.css
+ * WP Admin sidebar — Pet Forum nature theme
+ * Palette: #1b4332 (rừng đậm) → #d8f3dc (xanh nhạt)
  */
-:root {
-	--pf-admin-bg: #1b4332;
-	--pf-admin-bg-hover: #2d6a4f;
-	--pf-admin-bg-active: #40916c;
-	--pf-admin-text: #d8f3dc;
-	--pf-admin-text-muted: #95d5b2;
-}
 
+/* ── Sidebar nền chính ── */
 #adminmenuback,
 #adminmenuwrap,
 #adminmenu {
-	background-color: var(--pf-admin-bg);
+	background: #1b4332 !important;
 }
 
-#adminmenu a {
-	color: var(--pf-admin-text);
+/* ── Menu item thường ── */
+#adminmenu a,
+#adminmenu li.menu-top > a {
+	color: #b7e4c7 !important;
 }
 
-#adminmenu div.wp-menu-image:before {
-	color: var(--pf-admin-text-muted);
+/* ── Hover ── */
+#adminmenu a:hover,
+#adminmenu li.menu-top:hover > a,
+#adminmenu li.opensub > a {
+	background: #2d6a4f !important;
+	color: #d8f3dc !important;
 }
 
-#adminmenu li.menu-top:hover,
-#adminmenu li.opensub > a.menu-top,
-#adminmenu li > a.menu-top:focus {
-	background-color: var(--pf-admin-bg-hover);
-	color: #fff;
+/* ── Item đang active / current ── */
+#adminmenu .current > a,
+#adminmenu .wp-has-current-submenu > a,
+#adminmenu .wp-menu-open > a {
+	background: #40916c !important;
+	color: #ffffff !important;
 }
 
-#adminmenu li.current a.menu-top,
-#adminmenu li.wp-has-current-submenu a.wp-has-current-submenu,
-#adminmenu .wp-has-current-submenu .wp-submenu .wp-submenu-head {
-	background-color: var(--pf-admin-bg-active);
-	color: #fff;
-}
-
+/* ── Submenu nền ── */
 #adminmenu .wp-submenu {
-	background-color: var(--pf-admin-bg-hover);
+	background: #152d25 !important;
 }
 
+/* ── Submenu links ── */
 #adminmenu .wp-submenu a {
-	color: var(--pf-admin-text);
+	color: #95d5b2 !important;
 }
 
 #adminmenu .wp-submenu a:hover,
-#adminmenu .wp-submenu a:focus {
-	color: #fff;
+#adminmenu .wp-submenu .current a {
+	color: #ffffff !important;
 }
 
+/* ── Separator ── */
+#adminmenu .wp-menu-separator {
+	background: #2d6a4f !important;
+}
+
+/* ── Admin bar (top bar) ── */
 #wpadminbar {
-	background: linear-gradient(90deg, var(--pf-admin-bg), var(--pf-admin-bg-hover));
+	background: #1b4332 !important;
 }
 
 #wpadminbar .ab-item,
 #wpadminbar a.ab-item,
-#wpadminbar > #wp-toolbar span.ab-label,
-#wpadminbar > #wp-toolbar span.noticon {
-	color: var(--pf-admin-text);
+#wpadminbar .ab-label {
+	color: #b7e4c7 !important;
 }
 
-#wpadminbar .ab-top-menu > li:hover > .ab-item,
-#wpadminbar .ab-top-menu > li.hover > .ab-item,
-#wpadminbar .ab-top-menu > li > .ab-item:focus {
-	background-color: var(--pf-admin-bg-active);
-	color: #fff;
+#wpadminbar li:hover > a,
+#wpadminbar .ab-top-menu > li.hover > .ab-item {
+	background: #2d6a4f !important;
+	color: #ffffff !important;
 }
 
-/* PetForum admin menu highlight */
+#wpadminbar .ab-submenu {
+	background: #2d6a4f !important;
+}
+
+/* ── Bubble thông báo (update count) ── */
+#adminmenu .update-plugins,
+#adminmenu .awaiting-mod {
+	background: #74c69d !important;
+	color: #1b4332 !important;
+}
+
+/* ── Collapse button ── */
+#collapse-button {
+	color: #74c69d !important;
+}
+
+#collapse-button:hover {
+	color: #ffffff !important;
+}
+
+/* ── Nút Save/Update chính trong admin ── */
+.wp-core-ui .button-primary {
+	background: #40916c !important;
+	border-color: #2d6a4f !important;
+	color: #ffffff !important;
+}
+
+.wp-core-ui .button-primary:hover {
+	background: #2d6a4f !important;
+	border-color: #1b4332 !important;
+}
+
+/* ── Focus outline xanh ── */
+:focus {
+	box-shadow: 0 0 0 1px #40916c !important;
+}
+
+/* ── PetForum menu icon ── */
 #adminmenu .toplevel_page_pf-admin .wp-menu-image:before {
-	color: #74c69d;
+	color: #74c69d !important;
 }
 
 #adminmenu .toplevel_page_pf-admin.current .wp-menu-image:before,
 #adminmenu .toplevel_page_pf-admin.wp-has-current-submenu .wp-menu-image:before {
-	color: #fff;
+	color: #ffffff !important;
 }
